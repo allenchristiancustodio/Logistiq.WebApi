@@ -1,20 +1,20 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
 using Logistiq.Application.Common.Interfaces;
 using Logistiq.Domain.Entities;
+using Logistiq.Domain.Enums;
 
 namespace Logistiq.API.Controllers;
 
 public class UsersController : BaseApiController
 {
-    private readonly IRepository<ApplicationUser> _userRepository;
+    private readonly IUserRepository _userRepository;
     private readonly IRepository<CompanyUser> _companyUserRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IUnitOfWork _unitOfWork;
 
     public UsersController(
-        IRepository<ApplicationUser> userRepository,
+        IUserRepository userRepository,
         IRepository<CompanyUser> companyUserRepository,
         ICurrentUserService currentUserService,
         IUnitOfWork unitOfWork)
@@ -34,59 +34,68 @@ public class UsersController : BaseApiController
             return BadRequest("User ID not found");
         }
 
-        // Check if user exists with company relationships
-        var existingUser = await _userRepository.FindAsync(u => u.KindeUserId == kindeUserId);
-        var user = existingUser.FirstOrDefault();
-
-        bool isNewUser = false;
-
-        if (user == null)
+        try
         {
-            // Create new user
-            user = new ApplicationUser
+            // Check if user exists with company relationships
+            var existingUser = await _userRepository.GetUserWithCompaniesByKindeIdAsync(kindeUserId);
+
+            bool isNewUser = false;
+
+            if (existingUser == null)
             {
-                KindeUserId = kindeUserId,
-                Email = request.Email,
-                FirstName = request.FirstName,
-                LastName = request.LastName,
-                Phone = request.Phone,
-                IsActive = true
+                // Create new user
+                existingUser = new ApplicationUser
+                {
+                    KindeUserId = kindeUserId,
+                    Email = request.Email,
+                    FirstName = request.FirstName,
+                    LastName = request.LastName,
+                    Phone = request.Phone,
+                    IsActive = true
+                };
+
+                await _userRepository.AddAsync(existingUser);
+                isNewUser = true;
+            }
+            else
+            {
+                // Update existing user
+                existingUser.Email = request.Email;
+                existingUser.FirstName = request.FirstName;
+                existingUser.LastName = request.LastName;
+                existingUser.Phone = request.Phone ?? existingUser.Phone;
+
+                await _userRepository.UpdateAsync(existingUser);
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+
+            // Reload user with updated company relationships if not new user
+            if (!isNewUser)
+            {
+                existingUser = await _userRepository.GetUserWithCompaniesAsync(existingUser.Id);
+            }
+
+            // Check if user has active company
+            var activeCompanyUser = existingUser?.CompanyUsers?.FirstOrDefault(cu => cu.IsActive);
+
+            var response = new UserResult
+            {
+                UserId = existingUser.Id.ToString(),
+                Email = existingUser.Email,
+                FullName = $"{existingUser.FirstName} {existingUser.LastName}".Trim(),
+                IsNewUser = isNewUser,
+                HasActiveCompany = activeCompanyUser != null,
+                CurrentCompanyId = activeCompanyUser?.CompanyId.ToString(),
+                CurrentCompanyName = activeCompanyUser?.Company?.Name
             };
 
-            await _userRepository.AddAsync(user);
-            isNewUser = true;
+            return Ok(response);
         }
-        else
+        catch (Exception ex)
         {
-            // Update existing user
-            user.Email = request.Email;
-            user.FirstName = request.FirstName;
-            user.LastName = request.LastName;
-            user.Phone = request.Phone ?? user.Phone;
-
-            await _userRepository.UpdateAsync(user);
+            return BadRequest($"Error creating/updating user: {ex.Message}");
         }
-
-        await _unitOfWork.SaveChangesAsync();
-
-        // Get user with company relationships loaded
-        var userWithCompanies = await GetUserWithCompaniesAsync(user.Id);
-
-        // Check if user has active company
-        var activeCompanyUser = userWithCompanies?.CompanyUsers.FirstOrDefault(cu => cu.IsActive);
-
-        var response = new UserResult
-        {
-            UserId = user.Id.ToString(),
-            Email = user.Email,
-            FullName = $"{user.FirstName} {user.LastName}".Trim(),
-            IsNewUser = isNewUser,
-            HasActiveCompany = activeCompanyUser != null,
-            CurrentCompanyId = activeCompanyUser?.CompanyId.ToString(),
-            CurrentCompanyName = activeCompanyUser?.Company?.Name
-        };
-
-        return Ok(response);
     }
 
     [HttpGet("me")]
@@ -98,28 +107,33 @@ public class UsersController : BaseApiController
             return BadRequest("User ID not found");
         }
 
-        var user = await _userRepository.FirstOrDefaultAsync(u => u.KindeUserId == kindeUserId);
-        if (user == null)
+        try
         {
-            return NotFound("User not found");
+            var user = await _userRepository.GetUserWithCompaniesByKindeIdAsync(kindeUserId);
+            if (user == null)
+            {
+                return NotFound("User not found");
+            }
+
+            var activeCompanyUser = user.CompanyUsers?.FirstOrDefault(cu => cu.IsActive);
+
+            var response = new UserResult
+            {
+                UserId = user.Id.ToString(),
+                Email = user.Email,
+                FullName = $"{user.FirstName} {user.LastName}".Trim(),
+                IsNewUser = false,
+                HasActiveCompany = activeCompanyUser != null,
+                CurrentCompanyId = activeCompanyUser?.CompanyId.ToString(),
+                CurrentCompanyName = activeCompanyUser?.Company?.Name
+            };
+
+            return Ok(response);
         }
-
-        // Get user with company relationships loaded
-        var userWithCompanies = await GetUserWithCompaniesAsync(user.Id);
-        var activeCompanyUser = userWithCompanies?.CompanyUsers.FirstOrDefault(cu => cu.IsActive);
-
-        var response = new UserResult
+        catch (Exception ex)
         {
-            UserId = user.Id.ToString(),
-            Email = user.Email,
-            FullName = $"{user.FirstName} {user.LastName}".Trim(),
-            IsNewUser = false,
-            HasActiveCompany = activeCompanyUser != null,
-            CurrentCompanyId = activeCompanyUser?.CompanyId.ToString(),
-            CurrentCompanyName = activeCompanyUser?.Company?.Name
-        };
-
-        return Ok(response);
+            return BadRequest($"Error getting current user: {ex.Message}");
+        }
     }
 
     [HttpGet("companies")]
@@ -131,29 +145,30 @@ public class UsersController : BaseApiController
             return BadRequest("User ID not found");
         }
 
-        var user = await _userRepository.FirstOrDefaultAsync(u => u.KindeUserId == kindeUserId);
-        if (user == null)
+        try
         {
-            return NotFound("User not found");
+            var user = await _userRepository.GetUserWithCompaniesByKindeIdAsync(kindeUserId);
+            if (user == null)
+            {
+                return NotFound("User not found");
+            }
+
+            var companies = user.CompanyUsers?.Where(cu => cu.Company.IsActive)
+                .Select(cu => new UserCompany
+                {
+                    Id = cu.CompanyId.ToString(),
+                    Name = cu.Company?.Name ?? "Unknown Company",
+                    Role = cu.Role.ToString(),
+                    IsActive = cu.IsActive,
+                    JoinedAt = cu.JoinedAt.ToString("yyyy-MM-dd")
+                }).ToList() ?? new List<UserCompany>();
+
+            return Ok(companies);
         }
-
-        // Get user with company relationships loaded
-        var userWithCompanies = await GetUserWithCompaniesAsync(user.Id);
-        if (userWithCompanies == null)
+        catch (Exception ex)
         {
-            return NotFound("User not found");
+            return BadRequest($"Error getting user companies: {ex.Message}");
         }
-
-        var companies = userWithCompanies.CompanyUsers.Select(cu => new UserCompany
-        {
-            Id = cu.CompanyId.ToString(),
-            Name = cu.Company?.Name ?? "Unknown Company",
-            Role = cu.Role.ToString(),
-            IsActive = cu.IsActive,
-            JoinedAt = cu.JoinedAt.ToString("yyyy-MM-dd")
-        }).ToList();
-
-        return Ok(companies);
     }
 
     [HttpPost("switch-company")]
@@ -165,64 +180,59 @@ public class UsersController : BaseApiController
             return BadRequest("User ID not found");
         }
 
-        var user = await _userRepository.FirstOrDefaultAsync(u => u.KindeUserId == kindeUserId);
-        if (user == null)
-        {
-            return NotFound("User not found");
-        }
-
         if (!Guid.TryParse(request.CompanyId, out var companyId))
         {
             return BadRequest("Invalid company ID");
         }
 
-        // Get user with company relationships
-        var userWithCompanies = await GetUserWithCompaniesAsync(user.Id);
-        if (userWithCompanies == null)
+        try
         {
-            return NotFound("User not found");
+            var user = await _userRepository.GetUserWithCompaniesByKindeIdAsync(kindeUserId);
+            if (user == null)
+            {
+                return NotFound("User not found");
+            }
+
+            // Check if user belongs to the company
+            var targetCompanyUser = user.CompanyUsers?.FirstOrDefault(cu => cu.CompanyId == companyId);
+            if (targetCompanyUser == null)
+            {
+                return BadRequest("User does not belong to this company");
+            }
+
+            // Deactivate all company memberships for this user
+            if (user.CompanyUsers != null)
+            {
+                foreach (var companyUser in user.CompanyUsers)
+                {
+                    companyUser.IsActive = false;
+                    await _companyUserRepository.UpdateAsync(companyUser);
+                }
+            }
+
+            // Activate the target company
+            targetCompanyUser.IsActive = true;
+            await _companyUserRepository.UpdateAsync(targetCompanyUser);
+
+            await _unitOfWork.SaveChangesAsync();
+
+            var response = new UserResult
+            {
+                UserId = user.Id.ToString(),
+                Email = user.Email,
+                FullName = $"{user.FirstName} {user.LastName}".Trim(),
+                IsNewUser = false,
+                HasActiveCompany = true,
+                CurrentCompanyId = targetCompanyUser.CompanyId.ToString(),
+                CurrentCompanyName = targetCompanyUser.Company?.Name ?? "Unknown Company"
+            };
+
+            return Ok(response);
         }
-
-        // Check if user belongs to the company
-        var targetCompanyUser = userWithCompanies.CompanyUsers.FirstOrDefault(cu => cu.CompanyId == companyId);
-        if (targetCompanyUser == null)
+        catch (Exception ex)
         {
-            return BadRequest("User does not belong to this company");
+            return BadRequest($"Error switching company: {ex.Message}");
         }
-
-        // Deactivate all company memberships for this user
-        foreach (var companyUser in userWithCompanies.CompanyUsers)
-        {
-            companyUser.IsActive = false;
-            await _companyUserRepository.UpdateAsync(companyUser);
-        }
-
-        // Activate the target company
-        targetCompanyUser.IsActive = true;
-        await _companyUserRepository.UpdateAsync(targetCompanyUser);
-
-        await _unitOfWork.SaveChangesAsync();
-
-        var response = new UserResult
-        {
-            UserId = user.Id.ToString(),
-            Email = user.Email,
-            FullName = $"{user.FirstName} {user.LastName}".Trim(),
-            IsNewUser = false,
-            HasActiveCompany = true,
-            CurrentCompanyId = targetCompanyUser.CompanyId.ToString(),
-            CurrentCompanyName = targetCompanyUser.Company?.Name ?? "Unknown Company"
-        };
-
-        return Ok(response);
-    }
-
-    private async Task<ApplicationUser?> GetUserWithCompaniesAsync(Guid userId)
-    {
-        // This is a simplified approach - in a real application you'd want to use 
-        // Entity Framework Include() method or create a specific repository method
-        var users = await _userRepository.FindAsync(u => u.Id == userId);
-        return users.FirstOrDefault();
     }
 }
 
