@@ -36,7 +36,7 @@ namespace Logistiq.Persistence.Configurations
             builder.HasMany(x => x.Products)
                 .WithOne(x => x.Category)
                 .HasForeignKey(x => x.CategoryId)
-                .OnDelete(DeleteBehavior.SetNull); // Don't delete products when category is deleted
+                .OnDelete(DeleteBehavior.Restrict);// Don't delete products when category is deleted
         }
     }
 }

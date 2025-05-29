@@ -48,7 +48,7 @@ namespace Logistiq.Persistence.Configurations
             builder.HasMany(x => x.Orders)
                 .WithOne(x => x.Customer)
                 .HasForeignKey(x => x.CustomerId)
-                .OnDelete(DeleteBehavior.SetNull); // Orders can exist without customer
+                .OnDelete(DeleteBehavior.Restrict); // Orders can exist without customer
         }
     }
 }

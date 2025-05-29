@@ -29,7 +29,11 @@ namespace Logistiq.Persistence.Configurations
             // Composite index for performance
             builder.HasIndex(x => new { x.OrderId, x.ProductId });
 
-            // Relationships are configured in parent entities
-        }
+
+            builder.HasOne(x => x.Company)
+              .WithMany() // No navigation property from Company
+              .HasForeignKey(x => x.CompanyId)
+              .OnDelete(DeleteBehavior.NoAction);
+                }
     }
 }
