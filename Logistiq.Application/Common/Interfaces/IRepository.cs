@@ -20,6 +20,7 @@ namespace Logistiq.Application.Common.Interfaces
         Task DeleteAsync(TEntity entity, CancellationToken cancellationToken = default);
         Task DeleteRangeAsync(IEnumerable<TEntity> entities, CancellationToken cancellationToken = default);
         Task<PagedResult<TEntity>> GetPagedAsync(int page, int pageSize, Expression<Func<TEntity, bool>>? predicate = null, CancellationToken cancellationToken = default);
+        IQueryable<TEntity> GetQueryable();
     }
 
     public interface IRepository<TEntity> : IRepository<TEntity, Guid> where TEntity : BaseEntity

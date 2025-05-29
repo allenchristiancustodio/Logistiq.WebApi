@@ -10,6 +10,7 @@ using Logistiq.Infrastructure.Services;
 using Logistiq.Persistence.Data;
 using Logistiq.Persistence.Repositories;
 using Logistiq.Application.Products.Commands.CreateProduct;
+using Logistiq.API.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +38,7 @@ builder.Services.AddScoped(typeof(ITenantRepository<,>), typeof(TenantRepository
 // Services
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<ICompanyManagementService, CompanyManagementService>();
 
 // Kinde Authentication
 builder.Services.AddAuthentication("Bearer")
@@ -52,47 +54,97 @@ builder.Services.AddAuthentication("Bearer")
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ClockSkew = TimeSpan.Zero
+            ClockSkew = TimeSpan.Zero,
+            //for better debugging
+            ValidIssuer = builder.Configuration["Kinde:Domain"],
+            ValidAudience = builder.Configuration["Kinde:Audience"]
         };
 
         options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
         {
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogError("Authentication failed: {Error}", context.Exception.Message);
+                return Task.CompletedTask;
+            },
+
             OnTokenValidated = async context =>
             {
-                var userService = context.HttpContext.RequestServices.GetRequiredService<IRepository<ApplicationUser>>();
-                var kindeUserId = context.Principal?.FindFirst("sub")?.Value;
-
-                if (!string.IsNullOrEmpty(kindeUserId))
+                try
                 {
+                    var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                    var userService = context.HttpContext.RequestServices.GetRequiredService<IRepository<ApplicationUser>>();
+                    var companyUserService = context.HttpContext.RequestServices.GetRequiredService<IRepository<CompanyUser>>();
+                    var unitOfWork = context.HttpContext.RequestServices.GetRequiredService<IUnitOfWork>();
+
+                    var kindeUserId = context.Principal?.FindFirst("sub")?.Value;
+
+                    if (string.IsNullOrEmpty(kindeUserId))
+                    {
+                        logger.LogWarning("No sub claim found in token");
+                        return;
+                    }
+
+                    // Check if user exists
                     var user = await userService.FirstOrDefaultAsync(u => u.KindeUserId == kindeUserId);
 
                     if (user == null)
                     {
-                        // Create user if doesn't exist
+                        logger.LogInformation("Creating new user for Kinde ID: {KindeUserId}", kindeUserId);
+
                         var email = context.Principal?.FindFirst("email")?.Value ?? "";
                         var firstName = context.Principal?.FindFirst("given_name")?.Value ?? "";
                         var lastName = context.Principal?.FindFirst("family_name")?.Value ?? "";
+
+                        if (string.IsNullOrEmpty(email))
+                        {
+                            logger.LogWarning("No email found in token for user {KindeUserId}", kindeUserId);
+                            return;
+                        }
 
                         user = new ApplicationUser
                         {
                             KindeUserId = kindeUserId,
                             Email = email,
                             FirstName = firstName,
-                            LastName = lastName
+                            LastName = lastName,
+                            IsActive = true
                         };
 
                         await userService.AddAsync(user);
-                        var unitOfWork = context.HttpContext.RequestServices.GetRequiredService<IUnitOfWork>();
                         await unitOfWork.SaveChangesAsync();
+
+                        logger.LogInformation("Created new user: {Email}", email);
+
+                        // New users won't have companies yet, so skip company claim logic
+                        return;
                     }
 
-                    // Add company claim if user has active company membership
-                    var activeCompanyUser = user.CompanyUsers.FirstOrDefault(cu => cu.IsActive);
+                    // For existing users, check for active company
+                    var activeCompanyUser = await companyUserService.FirstOrDefaultAsync(
+                        cu => cu.ApplicationUserId == user.Id && cu.IsActive);
+
                     if (activeCompanyUser != null)
                     {
                         var identity = context.Principal?.Identity as System.Security.Claims.ClaimsIdentity;
                         identity?.AddClaim(new System.Security.Claims.Claim("company_id", activeCompanyUser.CompanyId.ToString()));
+                        identity?.AddClaim(new System.Security.Claims.Claim("user_id", user.Id.ToString()));
+                        logger.LogInformation("Added company claim for user {Email}: {CompanyId}", user.Email, activeCompanyUser.CompanyId);
                     }
+                    else
+                    {
+                        // Add user_id claim even without company
+                        var identity = context.Principal?.Identity as System.Security.Claims.ClaimsIdentity;
+                        identity?.AddClaim(new System.Security.Claims.Claim("user_id", user.Id.ToString()));
+                        logger.LogInformation("No active company found for user {Email}", user.Email);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                    logger.LogError(ex, "Error during token validation");
+                    // Don't fail authentication, but log the error
                 }
             }
         };
@@ -100,7 +152,7 @@ builder.Services.AddAuthentication("Bearer")
 
 builder.Services.AddAuthorization();
 
-// CORS
+// CORS - Update for your Next.js app
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowNextJS", policy =>
@@ -157,6 +209,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// Add exception middleware
+app.UseMiddleware<ExceptionMiddleware>();
 
 app.UseHttpsRedirection();
 app.UseCors("AllowNextJS");

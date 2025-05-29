@@ -112,6 +112,10 @@ public class Repository<TEntity, TId> : IRepository<TEntity, TId> where TEntity 
             PageSize = pageSize
         };
     }
+    public virtual IQueryable<TEntity> GetQueryable()
+    {
+        return _dbSet.AsQueryable();
+    }
 }
 
 public class Repository<TEntity> : Repository<TEntity, Guid>, IRepository<TEntity> where TEntity : BaseEntity
