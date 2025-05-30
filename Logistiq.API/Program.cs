@@ -1,4 +1,3 @@
-using System.Reflection;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -11,7 +10,6 @@ using Logistiq.Persistence.Data;
 using Logistiq.Persistence.Repositories;
 using Logistiq.Application.Products.Commands.CreateProduct;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
 using Logistiq.API.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -49,14 +47,13 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<ICompanyManagementService, CompanyManagementService>();
 
-// JWT Authentication for Kinde M2M
+// JWT Authentication for Clerk
 builder.Services.AddAuthentication("Bearer")
     .AddJwtBearer("Bearer", options =>
     {
-        // For M2M applications, we use the domain as the authority
-        options.Authority = builder.Configuration["Kinde:Domain"];
-        // The audience should be your API identifier in Kinde
-        options.Audience = builder.Configuration["Kinde:Audience"];
+        // Clerk configuration
+        options.Authority = "https://clerk.your-domain.com"; // Replace with your Clerk issuer URL
+        options.Audience = "your-app-name"; // Replace with your app identifier
         options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
 
         options.TokenValidationParameters = new TokenValidationParameters
@@ -65,9 +62,14 @@ builder.Services.AddAuthentication("Bearer")
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ClockSkew = TimeSpan.FromMinutes(5), // Allow some clock skew
-            // For M2M tokens, the name claim might be different
-            NameClaimType = "sub"
+            ClockSkew = TimeSpan.FromMinutes(5),
+
+            // Clerk typically uses 'sub' for the user ID
+            NameClaimType = "sub",
+
+            // You might need to adjust these based on your Clerk configuration
+            ValidIssuers = new[] { "https://clerk.your-domain.com" },
+            ValidAudiences = new[] { "your-app-name" }
         };
 
         options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
@@ -79,16 +81,19 @@ builder.Services.AddAuthentication("Bearer")
                     var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
                     var userRepository = context.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
 
-                    // Get the subject claim (Kinde user ID)
-                    var kindeUserId = context.Principal?.FindFirst("sub")?.Value;
+                    // Get the subject claim (Clerk user ID)
+                    var clerkUserId = context.Principal?.FindFirst("sub")?.Value;
+                    var email = context.Principal?.FindFirst("email")?.Value;
 
-                    logger.LogInformation("Token validated for Kinde user: {KindeUserId}", kindeUserId);
+                    logger.LogInformation("Token validated for Clerk user: {ClerkUserId}, Email: {Email}",
+                        clerkUserId, email);
 
-                    if (!string.IsNullOrEmpty(kindeUserId))
+                    if (!string.IsNullOrEmpty(clerkUserId))
                     {
-                        var user = await userRepository.GetUserWithCompaniesByKindeIdAsync(kindeUserId);
+                        // In Clerk, the user ID from 'sub' claim is what we store as KindeUserId
+                        // You might need to adjust this based on how you want to handle the migration
+                        var user = await userRepository.GetUserWithCompaniesByKindeIdAsync(clerkUserId);
 
-                        // Add company claim if user exists and has active company membership
                         if (user != null)
                         {
                             var activeCompanyUser = user.CompanyUsers?.FirstOrDefault(cu => cu.IsActive);
@@ -97,8 +102,8 @@ builder.Services.AddAuthentication("Bearer")
                                 var identity = context.Principal?.Identity as System.Security.Claims.ClaimsIdentity;
                                 identity?.AddClaim(new System.Security.Claims.Claim("company_id", activeCompanyUser.CompanyId.ToString()));
 
-                                logger.LogInformation("Added company claim: {CompanyId} for user: {KindeUserId}",
-                                    activeCompanyUser.CompanyId, kindeUserId);
+                                logger.LogInformation("Added company claim: {CompanyId} for user: {ClerkUserId}",
+                                    activeCompanyUser.CompanyId, clerkUserId);
                             }
                         }
                     }
@@ -128,10 +133,10 @@ builder.Services.AddAuthentication("Bearer")
 
 builder.Services.AddAuthorization();
 
-// CORS - Configure for Next.js frontend
+// CORS - Configure for Vite frontend
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowNextJS", policy =>
+    options.AddPolicy("AllowVite", policy =>
     {
         if (builder.Environment.IsDevelopment())
         {
@@ -161,12 +166,12 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "Logistiq API",
         Version = "v1",
-        Description = "Inventory Management SaaS API"
+        Description = "Inventory Management SaaS API with Clerk Authentication"
     });
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme. Enter your Kinde M2M token.",
+        Description = "JWT Authorization header using the Bearer scheme. Enter your Clerk token.",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.Http,
@@ -205,7 +210,7 @@ else
 }
 
 app.UseHttpsRedirection();
-app.UseCors("AllowNextJS");
+app.UseCors("AllowVite"); // Updated CORS policy name
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -224,7 +229,7 @@ using (var scope = app.Services.CreateScope())
         await context.Database.MigrateAsync();
         var services = scope.ServiceProvider;
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogInformation("Database migration completed successfully.");
+        logger.LogInformation("Database migration completed successfully with Clerk auth!");
     }
     catch (Exception ex)
     {
