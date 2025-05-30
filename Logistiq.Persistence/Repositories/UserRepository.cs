@@ -24,12 +24,13 @@ namespace Logistiq.Persistence.Repositories
                 .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
         }
 
-        public async Task<ApplicationUser?> GetUserWithCompaniesByKindeIdAsync(string kindeUserId, CancellationToken cancellationToken = default)
+        // Updated method name and implementation for Clerk
+        public async Task<ApplicationUser?> GetUserWithCompaniesByClerkIdAsync(string clerkUserId, CancellationToken cancellationToken = default)
         {
             return await _dbSet
                 .Include(u => u.CompanyUsers)
                     .ThenInclude(cu => cu.Company)
-                .FirstOrDefaultAsync(u => u.KindeUserId == kindeUserId, cancellationToken);
+                .FirstOrDefaultAsync(u => u.ClerkUserId == clerkUserId, cancellationToken);
         }
     }
 }

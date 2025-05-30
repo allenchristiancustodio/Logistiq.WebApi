@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Logistiq.Persistence.Migrations
 {
     [DbContext(typeof(LogistiqDbContext))]
-    [Migration("20250529045240_InitialMigration")]
-    partial class InitialMigration
+    [Migration("20250530205055_InitialMigrationChangingToClerk")]
+    partial class InitialMigrationChangingToClerk
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -30,6 +30,11 @@ namespace Logistiq.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ClerkUserId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -59,11 +64,6 @@ namespace Logistiq.Persistence.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("KindeUserId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -81,10 +81,10 @@ namespace Logistiq.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Email");
-
-                    b.HasIndex("KindeUserId")
+                    b.HasIndex("ClerkUserId")
                         .IsUnique();
+
+                    b.HasIndex("Email");
 
                     b.ToTable("ApplicationUsers");
                 });

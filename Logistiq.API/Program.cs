@@ -11,6 +11,7 @@ using Logistiq.Persistence.Repositories;
 using Logistiq.Application.Products.Commands.CreateProduct;
 using Microsoft.IdentityModel.Tokens;
 using Logistiq.API.Middleware;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -51,25 +52,23 @@ builder.Services.AddScoped<ICompanyManagementService, CompanyManagementService>(
 builder.Services.AddAuthentication("Bearer")
     .AddJwtBearer("Bearer", options =>
     {
-        // Clerk configuration
-        options.Authority = builder.Configuration["Clerk:Authority"];
-        options.Audience = builder.Configuration["Clerk:Audience"];
+        options.Authority = "https://master-grouse-87.clerk.accounts.dev";
         options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
 
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidateAudience = true,
+            ValidateAudience = false, 
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
             ClockSkew = TimeSpan.FromMinutes(5),
 
-            // Clerk typically uses 'sub' for the user ID
+            // Clerk uses 'sub' for the user ID
             NameClaimType = "sub",
+            RoleClaimType = "role",
 
-            // You might need to adjust these based on your Clerk configuration
-            ValidIssuers = new[] { "https://ruling-wren-85.clerk.accounts.dev" },
-            ValidAudiences = new[] { "https://ruling-wren-85.clerk.accounts.dev" }
+            // Set the valid issuer to match your Clerk domain
+            ValidIssuer = "https://master-grouse-87.clerk.accounts.dev",
         };
 
         options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
@@ -81,53 +80,62 @@ builder.Services.AddAuthentication("Bearer")
                     var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
                     var userRepository = context.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
 
-                    // Get the subject claim (Clerk user ID)
-                    var clerkUserId = context.Principal?.FindFirst("sub")?.Value;
-                    var email = context.Principal?.FindFirst("email")?.Value;
+                    // Log all claims for debugging
+                    var claims = context.Principal?.Claims?.ToList() ?? new List<Claim>();
+                    logger.LogInformation("Token validated successfully! Claims: {Claims}",
+                        string.Join(", ", claims.Select(c => $"{c.Type}={c.Value}")));
 
-                    logger.LogInformation("Token validated for Clerk user: {ClerkUserId}, Email: {Email}",
-                        clerkUserId, email);
+                    // Extract Clerk user ID - try multiple claim types
+                    var clerkUserId = context.Principal?.FindFirst("sub")?.Value
+                                   ?? context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                                   ?? context.Principal?.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+
+                    // Extract email - try multiple claim types  
+                    var email = context.Principal?.FindFirst("email")?.Value
+                             ?? context.Principal?.FindFirst(ClaimTypes.Email)?.Value
+                             ?? context.Principal?.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
+
+                    logger.LogInformation("Extracted - Clerk user: {ClerkUserId}, Email: {Email}",
+                        clerkUserId, email ?? "not_in_token");
 
                     if (!string.IsNullOrEmpty(clerkUserId))
                     {
-                        // In Clerk, the user ID from 'sub' claim is what we store as KindeUserId
-                        // You might need to adjust this based on how you want to handle the migration
-                        var user = await userRepository.GetUserWithCompaniesByKindeIdAsync(clerkUserId);
+                        // Use the new Clerk method
+                        var user = await userRepository.GetUserWithCompaniesByClerkIdAsync(clerkUserId);
 
                         if (user != null)
                         {
                             var activeCompanyUser = user.CompanyUsers?.FirstOrDefault(cu => cu.IsActive);
                             if (activeCompanyUser != null)
                             {
-                                var identity = context.Principal?.Identity as System.Security.Claims.ClaimsIdentity;
-                                identity?.AddClaim(new System.Security.Claims.Claim("company_id", activeCompanyUser.CompanyId.ToString()));
+                                var identity = context.Principal?.Identity as ClaimsIdentity;
+                                identity?.AddClaim(new Claim("company_id", activeCompanyUser.CompanyId.ToString()));
 
                                 logger.LogInformation("Added company claim: {CompanyId} for user: {ClerkUserId}",
                                     activeCompanyUser.CompanyId, clerkUserId);
                             }
+                            else
+                            {
+                                logger.LogInformation("User has no active company: {ClerkUserId}", clerkUserId);
+                            }
                         }
+                        else
+                        {
+                            logger.LogInformation("User not found in database: {ClerkUserId} - user may need to be created via webhook", clerkUserId);
+                        }
+                    }
+                    else
+                    {
+                        logger.LogWarning("Could not extract user ID from token claims");
                     }
                 }
                 catch (Exception ex)
                 {
                     var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                    logger.LogError(ex, "Error during token validation for user");
+                    logger.LogError(ex, "Error during token validation");
                     // Don't fail authentication, just log the error
                 }
             },
-            OnAuthenticationFailed = context =>
-            {
-                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogError(context.Exception, "JWT Authentication failed: {Failure}", context.Exception.Message);
-                return Task.CompletedTask;
-            },
-            OnChallenge = context =>
-            {
-                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogWarning("JWT Challenge triggered: {Error} - {ErrorDescription}",
-                    context.Error, context.ErrorDescription);
-                return Task.CompletedTask;
-            }
         };
     });
 
@@ -210,7 +218,7 @@ else
 }
 
 app.UseHttpsRedirection();
-app.UseCors("AllowVite"); // Updated CORS policy name
+app.UseCors("AllowVite");
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -220,6 +228,12 @@ app.MapControllers();
 // Add a health check endpoint
 app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Timestamp = DateTime.UtcNow }));
 
+// Startup logging
+var logger = app.Services.GetRequiredService<ILogger<Program>>();
+logger.LogInformation("Logistiq API starting with Clerk authentication");
+logger.LogInformation("Clerk Authority: https://master-grouse-87.clerk.accounts.dev");
+logger.LogInformation("Environment: {Environment}", app.Environment.EnvironmentName);
+
 // Database Migration
 using (var scope = app.Services.CreateScope())
 {
@@ -228,13 +242,13 @@ using (var scope = app.Services.CreateScope())
     {
         await context.Database.MigrateAsync();
         var services = scope.ServiceProvider;
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogInformation("Database migration completed successfully with Clerk auth!");
+        var migrationLogger = services.GetRequiredService<ILogger<Program>>();
+        migrationLogger.LogInformation("Database migration completed successfully!");
     }
     catch (Exception ex)
     {
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while migrating the database.");
+        var migrationLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        migrationLogger.LogError(ex, "An error occurred while migrating the database");
     }
 }
 

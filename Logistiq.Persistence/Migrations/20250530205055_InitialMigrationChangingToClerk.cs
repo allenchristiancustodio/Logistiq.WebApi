@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Logistiq.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialMigration : Migration
+    public partial class InitialMigrationChangingToClerk : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -16,7 +16,7 @@ namespace Logistiq.Persistence.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    KindeUserId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    ClerkUserId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Email = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
                     FirstName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     LastName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
@@ -375,15 +375,15 @@ namespace Logistiq.Persistence.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_ApplicationUsers_ClerkUserId",
+                table: "ApplicationUsers",
+                column: "ClerkUserId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ApplicationUsers_Email",
                 table: "ApplicationUsers",
                 column: "Email");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ApplicationUsers_KindeUserId",
-                table: "ApplicationUsers",
-                column: "KindeUserId",
-                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Categories_CompanyId_Name",

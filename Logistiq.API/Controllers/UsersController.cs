@@ -28,8 +28,8 @@ public class UsersController : BaseApiController
     [HttpPost("create-or-update")]
     public async Task<ActionResult> CreateOrUpdateUser([FromBody] CreateOrUpdateUserRequest request)
     {
-        var kindeUserId = _currentUserService.UserId;
-        if (string.IsNullOrEmpty(kindeUserId))
+        var clerkUserId = _currentUserService.UserId;
+        if (string.IsNullOrEmpty(clerkUserId))
         {
             return BadRequest("User ID not found");
         }
@@ -37,7 +37,7 @@ public class UsersController : BaseApiController
         try
         {
             // Check if user exists with company relationships
-            var existingUser = await _userRepository.GetUserWithCompaniesByKindeIdAsync(kindeUserId);
+            var existingUser = await _userRepository.GetUserWithCompaniesByClerkIdAsync(clerkUserId);
 
             bool isNewUser = false;
 
@@ -46,7 +46,7 @@ public class UsersController : BaseApiController
                 // Create new user
                 existingUser = new ApplicationUser
                 {
-                    KindeUserId = kindeUserId,
+                    ClerkUserId = clerkUserId,
                     Email = request.Email,
                     FirstName = request.FirstName,
                     LastName = request.LastName,
@@ -109,7 +109,7 @@ public class UsersController : BaseApiController
 
         try
         {
-            var user = await _userRepository.GetUserWithCompaniesByKindeIdAsync(kindeUserId);
+            var user = await _userRepository.GetUserWithCompaniesByClerkIdAsync(kindeUserId);
             if (user == null)
             {
                 return NotFound("User not found");
@@ -139,15 +139,15 @@ public class UsersController : BaseApiController
     [HttpGet("companies")]
     public async Task<ActionResult> GetUserCompanies()
     {
-        var kindeUserId = _currentUserService.UserId;
-        if (string.IsNullOrEmpty(kindeUserId))
+        var clerkUserId = _currentUserService.UserId;
+        if (string.IsNullOrEmpty(clerkUserId))
         {
             return BadRequest("User ID not found");
         }
 
         try
         {
-            var user = await _userRepository.GetUserWithCompaniesByKindeIdAsync(kindeUserId);
+            var user = await _userRepository.GetUserWithCompaniesByClerkIdAsync(clerkUserId);
             if (user == null)
             {
                 return NotFound("User not found");
@@ -174,8 +174,8 @@ public class UsersController : BaseApiController
     [HttpPost("switch-company")]
     public async Task<ActionResult> SwitchCompany([FromBody] SwitchCompanyRequest request)
     {
-        var kindeUserId = _currentUserService.UserId;
-        if (string.IsNullOrEmpty(kindeUserId))
+        var clerkUserId = _currentUserService.UserId;
+        if (string.IsNullOrEmpty(clerkUserId))
         {
             return BadRequest("User ID not found");
         }
@@ -187,7 +187,7 @@ public class UsersController : BaseApiController
 
         try
         {
-            var user = await _userRepository.GetUserWithCompaniesByKindeIdAsync(kindeUserId);
+            var user = await _userRepository.GetUserWithCompaniesByClerkIdAsync(clerkUserId);
             if (user == null)
             {
                 return NotFound("User not found");

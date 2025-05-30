@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 
 namespace Logistiq.Domain.Common
 {
-    public interface ITenantEntity
+    public interface IOrganizationEntity
     {
-        Guid CompanyId { get; set; }
+        Guid ClerkOrganizationId { get; set; }
     }
 }

@@ -24,8 +24,8 @@ public class CreateOrUpdateUserCommandHandler : IRequestHandler<CreateOrUpdateUs
 
     public async Task<Result<UserResult>> Handle(CreateOrUpdateUserCommand request, CancellationToken cancellationToken)
     {
-        var kindeUserId = _currentUserService.UserId;
-        if (string.IsNullOrEmpty(kindeUserId))
+        var clerkUserId = _currentUserService.UserId;
+        if (string.IsNullOrEmpty(clerkUserId))
         {
             return Result<UserResult>.Failure("User not authenticated");
         }
@@ -34,7 +34,7 @@ public class CreateOrUpdateUserCommandHandler : IRequestHandler<CreateOrUpdateUs
         var existingUser = await _userRepository.GetQueryable()
             .Include(u => u.CompanyUsers)
                 .ThenInclude(cu => cu.Company)
-            .FirstOrDefaultAsync(u => u.KindeUserId == kindeUserId, cancellationToken);
+            .FirstOrDefaultAsync(u => u.ClerkUserId == clerkUserId, cancellationToken);
 
         if (existingUser != null)
         {
@@ -65,7 +65,7 @@ public class CreateOrUpdateUserCommandHandler : IRequestHandler<CreateOrUpdateUs
         // Create new user
         var newUser = new ApplicationUser
         {
-            KindeUserId = kindeUserId,
+            ClerkUserId = clerkUserId,
             Email = request.Email,
             FirstName = request.FirstName,
             LastName = request.LastName,

@@ -10,6 +10,6 @@ namespace Logistiq.Application.Common.Interfaces
     public interface IUserRepository : IRepository<ApplicationUser>
     {
         Task<ApplicationUser?> GetUserWithCompaniesAsync(Guid userId, CancellationToken cancellationToken = default);
-        Task<ApplicationUser?> GetUserWithCompaniesByKindeIdAsync(string kindeUserId, CancellationToken cancellationToken = default);
+        Task<ApplicationUser?> GetUserWithCompaniesByClerkIdAsync(string kindeUserId, CancellationToken cancellationToken = default);
     }
 }

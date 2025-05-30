@@ -21,8 +21,8 @@ public class GetCurrentUserQueryHandler : IRequestHandler<GetCurrentUserQuery, R
 
     public async Task<Result<CurrentUserDto>> Handle(GetCurrentUserQuery request, CancellationToken cancellationToken)
     {
-        var kindeUserId = _currentUserService.UserId;
-        if (string.IsNullOrEmpty(kindeUserId))
+        var clerkUserId = _currentUserService.UserId;
+        if (string.IsNullOrEmpty(clerkUserId))
         {
             return Result<CurrentUserDto>.Failure("User not authenticated");
         }
@@ -30,7 +30,7 @@ public class GetCurrentUserQueryHandler : IRequestHandler<GetCurrentUserQuery, R
         var user = await _userRepository.GetQueryable()
             .Include(u => u.CompanyUsers.Where(cu => cu.IsActive))
                 .ThenInclude(cu => cu.Company)
-            .FirstOrDefaultAsync(u => u.KindeUserId == kindeUserId, cancellationToken);
+            .FirstOrDefaultAsync(u => u.ClerkUserId == clerkUserId, cancellationToken);
 
         if (user == null)
         {

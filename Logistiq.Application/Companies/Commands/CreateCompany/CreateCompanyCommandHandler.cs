@@ -30,15 +30,15 @@ public class CreateCompanyCommandHandler : IRequestHandler<CreateCompanyCommand,
 
     public async Task<Result<CreateCompanyResult>> Handle(CreateCompanyCommand request, CancellationToken cancellationToken)
     {
-        var kindeUserId = _currentUserService.UserId;
-        if (string.IsNullOrEmpty(kindeUserId))
+        var clerkUserId = _currentUserService.UserId;
+        if (string.IsNullOrEmpty(clerkUserId))
         {
             return Result<CreateCompanyResult>.Failure("User not authenticated");
         }
 
         // Get the current user
         var user = await _userRepository.FirstOrDefaultAsync(
-            u => u.KindeUserId == kindeUserId, cancellationToken);
+            u => u.ClerkUserId == clerkUserId, cancellationToken);
 
         if (user == null)
         {

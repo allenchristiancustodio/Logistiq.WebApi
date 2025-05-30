@@ -10,7 +10,7 @@ public class ApplicationUserConfiguration : IEntityTypeConfiguration<Application
     {
         builder.HasKey(x => x.Id);
 
-        builder.Property(x => x.KindeUserId)
+        builder.Property(x => x.ClerkUserId) 
             .IsRequired()
             .HasMaxLength(100);
 
@@ -30,7 +30,7 @@ public class ApplicationUserConfiguration : IEntityTypeConfiguration<Application
             .HasMaxLength(20);
 
         // Indexes
-        builder.HasIndex(x => x.KindeUserId)
+        builder.HasIndex(x => x.ClerkUserId)
             .IsUnique();
 
         builder.HasIndex(x => x.Email);

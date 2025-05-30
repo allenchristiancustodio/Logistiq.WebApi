@@ -3,9 +3,9 @@ using Logistiq.Domain.Enums;
 
 namespace Logistiq.Domain.Entities
 {
-    public class Product : BaseEntity, ITenantEntity
+    public class Product : BaseEntity, IOrganizationEntity
     {
-        public Guid CompanyId { get; set; }
+        public string ClerkOrganizationId { get; set; } = string.Empty; // Changed from CompanyId
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string Sku { get; set; } = string.Empty;
@@ -18,9 +18,8 @@ namespace Logistiq.Domain.Entities
         public ProductStatus Status { get; set; } = ProductStatus.Active;
 
         // Navigation Properties
-        public virtual Company Company { get; set; } = null!;
+        public virtual Organization Organization { get; set; } = null!; // Changed from Company
         public virtual Category? Category { get; set; }
         public virtual ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
-       // To be Added in future public virtual ICollection<InventoryMovement> InventoryMovements { get; set; } = new List<InventoryMovement>();
     }
 }

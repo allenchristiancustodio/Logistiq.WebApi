@@ -29,7 +29,7 @@ public class CompaniesController : BaseApiController
 
         try
         {
-            var user = await _userRepository.GetUserWithCompaniesByKindeIdAsync(kindeUserId);
+            var user = await _userRepository.GetUserWithCompaniesByClerkIdAsync(kindeUserId);
             if (user == null)
             {
                 return NotFound("User not found");
