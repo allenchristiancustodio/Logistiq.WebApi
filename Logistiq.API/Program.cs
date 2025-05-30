@@ -52,8 +52,8 @@ builder.Services.AddAuthentication("Bearer")
     .AddJwtBearer("Bearer", options =>
     {
         // Clerk configuration
-        options.Authority = "https://clerk.your-domain.com"; // Replace with your Clerk issuer URL
-        options.Audience = "your-app-name"; // Replace with your app identifier
+        options.Authority = builder.Configuration["Clerk:Authority"];
+        options.Audience = builder.Configuration["Clerk:Audience"];
         options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
 
         options.TokenValidationParameters = new TokenValidationParameters
@@ -68,8 +68,8 @@ builder.Services.AddAuthentication("Bearer")
             NameClaimType = "sub",
 
             // You might need to adjust these based on your Clerk configuration
-            ValidIssuers = new[] { "https://clerk.your-domain.com" },
-            ValidAudiences = new[] { "your-app-name" }
+            ValidIssuers = new[] { "https://ruling-wren-85.clerk.accounts.dev" },
+            ValidAudiences = new[] { "https://ruling-wren-85.clerk.accounts.dev" }
         };
 
         options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
