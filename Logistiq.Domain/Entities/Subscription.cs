@@ -5,13 +5,11 @@ namespace Logistiq.Domain.Entities
 {
     public class Subscription : BaseEntity
     {
-        public Guid CompanyId { get; set; }
-        // Stripe Integration
+        public string ClerkOrganizationId { get; set; } = string.Empty;
         public string? StripeCustomerId { get; set; }
         public string? StripeSubscriptionId { get; set; }
         public string? StripePriceId { get; set; }
 
-        // Subscription Details
         public string PlanName { get; set; } = string.Empty; // "Basic", "Pro"
         public decimal MonthlyPrice { get; set; }
         public SubscriptionStatus Status { get; set; } = SubscriptionStatus.Trial;
@@ -26,6 +24,6 @@ namespace Logistiq.Domain.Entities
         public bool HasReporting { get; set; } = false;
 
         // Navigation Properties
-        public virtual Company Company { get; set; } = null!;
+        public virtual Organization Organization { get; set; } = null!;
     }
 }

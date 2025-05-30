@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 
 namespace Logistiq.Domain.Entities
 {
-    public class Supplier : BaseEntity, ITenantEntity
+    public class Supplier : BaseEntity, IOrganizationEntity
     {
-        public Guid CompanyId { get; set; }
+        public string ClerkOrganizationId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string? ContactPerson { get; set; }
         public string? Email { get; set; }
@@ -22,7 +22,7 @@ namespace Logistiq.Domain.Entities
         public bool IsActive { get; set; } = true;
 
         // Navigation Properties
-        public virtual Company Company { get; set; } = null!;
+        public virtual Organization Organization { get; set; } = null!;
         public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
     }
 }

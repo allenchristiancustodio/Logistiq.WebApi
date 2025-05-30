@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 
 namespace Logistiq.Domain.Entities
 {
-    public class OrderItem : BaseEntity, ITenantEntity
+    public class OrderItem : BaseEntity, IOrganizationEntity
     {
-        public Guid CompanyId { get; set; }
+        public string ClerkOrganizationId { get; set; } = string.Empty;
         public Guid OrderId { get; set; }
         public Guid ProductId { get; set; }
         public int Quantity { get; set; }
@@ -17,7 +17,7 @@ namespace Logistiq.Domain.Entities
         public decimal TotalPrice { get; set; }
 
         // Navigation Properties
-        public virtual Company Company { get; set; } = null!;
+        public virtual Organization Organization { get; set; } = null!;
         public virtual Order Order { get; set; } = null!;
         public virtual Product Product { get; set; } = null!;
     }

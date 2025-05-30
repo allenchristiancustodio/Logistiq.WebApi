@@ -6,10 +6,11 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace Logistiq.Domain.Entities
-{
-    public class Warehouse : BaseEntity, ITenantEntity
+{   
+    //For future upgrade
+    public class Warehouse : BaseEntity, IOrganizationEntity
     {
-        public Guid CompanyId { get; set; }
+        public string ClerkOrganizationId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string? Address { get; set; }
@@ -20,7 +21,7 @@ namespace Logistiq.Domain.Entities
         public bool IsActive { get; set; } = true;
 
         // Navigation Properties
-        public virtual Company Company { get; set; } = null!;
+        public virtual Organization Organization { get; set; } = null!;
         public virtual ICollection<InventoryMovement> InventoryMovements { get; set; } = new List<InventoryMovement>();
     }
 }

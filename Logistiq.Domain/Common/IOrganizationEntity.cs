@@ -8,6 +8,6 @@ namespace Logistiq.Domain.Common
 {
     public interface IOrganizationEntity
     {
-        Guid ClerkOrganizationId { get; set; }
+        string ClerkOrganizationId { get; set; }
     }
 }

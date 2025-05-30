@@ -6,12 +6,12 @@ using System.Threading.Tasks;
 
 namespace Logistiq.Domain.Enums
 {
-    public enum CompanyUserRole
+    public enum OrganizationSubscriptionStatus
     {
-        Owner = 1,
-        Admin = 2,
-        Manager = 3,
-        User = 4,
-        Viewer = 5
+        Trial = 1,
+        Active = 2,
+        Suspended = 3,
+        Cancelled = 4,
+        Expired = 5
     }
 }

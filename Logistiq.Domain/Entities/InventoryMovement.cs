@@ -3,9 +3,10 @@ using Logistiq.Domain.Enums;
 
 namespace Logistiq.Domain.Entities
 {
-    public class InventoryMovement : BaseEntity, ITenantEntity
-    {
-        public Guid CompanyId { get; set; }
+    public class InventoryMovement : BaseEntity, IOrganizationEntity
+    {   
+        //For future upgrade
+        public string ClerkOrganizationId { get; set; } = string.Empty;
         public Guid ProductId { get; set; }
         public Guid? WarehouseId { get; set; }
         public MovementType Type { get; set; }
@@ -15,8 +16,8 @@ namespace Logistiq.Domain.Entities
         public DateTime MovementDate { get; set; } = DateTime.UtcNow;
 
         // Navigation Properties
-        public virtual Company Company { get; set; } = null!;
+        public virtual Organization? Organization { get; set; } = null!;
         public virtual Product Product { get; set; } = null!;
-        public virtual Warehouse? Warehouse { get; set; }
+        public virtual Warehouse? Warehouse { get; set; } 
     }
 }

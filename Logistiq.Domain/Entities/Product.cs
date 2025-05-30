@@ -5,7 +5,7 @@ namespace Logistiq.Domain.Entities
 {
     public class Product : BaseEntity, IOrganizationEntity
     {
-        public string ClerkOrganizationId { get; set; } = string.Empty; // Changed from CompanyId
+        public string ClerkOrganizationId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string Sku { get; set; } = string.Empty;
@@ -18,7 +18,7 @@ namespace Logistiq.Domain.Entities
         public ProductStatus Status { get; set; } = ProductStatus.Active;
 
         // Navigation Properties
-        public virtual Organization Organization { get; set; } = null!; // Changed from Company
+        public virtual Organization Organization { get; set; } = null!; 
         public virtual Category? Category { get; set; }
         public virtual ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     }

@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 
 namespace Logistiq.Domain.Entities
 {
-    public class ExpenseCategory : BaseEntity, ITenantEntity
+    public class ExpenseCategory : BaseEntity, IOrganizationEntity
     {
-        public Guid CompanyId { get; set; }
+        public string ClerkOrganizationId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
     }

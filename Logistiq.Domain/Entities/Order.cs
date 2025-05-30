@@ -3,9 +3,9 @@ using Logistiq.Domain.Enums;
 
 namespace Logistiq.Domain.Entities
 {
-    public class Order : BaseEntity, ITenantEntity
+    public class Order : BaseEntity, IOrganizationEntity
     {
-        public Guid CompanyId { get; set; }
+        public string ClerkOrganizationId { get; set; } = string.Empty;
         public string OrderNumber { get; set; } = string.Empty;
         public OrderType Type { get; set; }
         public OrderStatus Status { get; set; } = OrderStatus.Pending;
@@ -13,16 +13,25 @@ namespace Logistiq.Domain.Entities
         public DateTime? ExpectedDate { get; set; }
         public DateTime? CompletedDate { get; set; }
         public Guid? CustomerId { get; set; }
-        //public Guid? SupplierId { get; set; } for future
+        public Guid? SupplierId { get; set; }
+
+        // Financial
         public decimal SubTotal { get; set; }
         public decimal TaxAmount { get; set; }
+        public decimal DiscountAmount { get; set; }
+        public decimal ShippingAmount { get; set; }
         public decimal TotalAmount { get; set; }
         public string? Notes { get; set; }
+        public string? ShippingAddress { get; set; }
+        public string? BillingAddress { get; set; }
+        public string? TrackingNumber { get; set; }
+
+        public string? CreatedByUserId { get; set; } 
 
         // Navigation Properties
-        public virtual Company Company { get; set; } = null!;
+        public virtual Organization Organization { get; set; } = null!;
         public virtual Customer? Customer { get; set; }
-        //public virtual Supplier? Supplier { get; set; } for future
+        public virtual Supplier? Supplier { get; set; }
         public virtual ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     }
 }
