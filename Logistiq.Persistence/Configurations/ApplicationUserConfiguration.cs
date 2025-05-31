@@ -35,10 +35,5 @@ public class ApplicationUserConfiguration : IEntityTypeConfiguration<Application
 
         builder.HasIndex(x => x.Email);
 
-        // Relationships
-        builder.HasMany(x => x.CompanyUsers)
-            .WithOne(x => x.ApplicationUser)
-            .HasForeignKey(x => x.ApplicationUserId)
-            .OnDelete(DeleteBehavior.Cascade);
     }
 }

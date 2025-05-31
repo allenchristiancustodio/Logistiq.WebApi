@@ -5,7 +5,6 @@ namespace Logistiq.Domain.Entities
 {
     public class InventoryMovement : BaseEntity, IOrganizationEntity
     {   
-        //For future upgrade
         public string ClerkOrganizationId { get; set; } = string.Empty;
         public Guid ProductId { get; set; }
         public Guid? WarehouseId { get; set; }

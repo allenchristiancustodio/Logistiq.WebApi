@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 
 namespace Logistiq.Domain.Entities
 {   
-    //For future upgrade
     public class Warehouse : BaseEntity, IOrganizationEntity
     {
         public string ClerkOrganizationId { get; set; } = string.Empty;

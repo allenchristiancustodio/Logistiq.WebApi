@@ -40,9 +40,11 @@ namespace Logistiq.Persistence.Configurations
             builder.Property(x => x.PostalCode)
                 .HasMaxLength(20);
 
+            builder.Property(x => x.Notes)
+                .HasMaxLength(100);
             // Indexes
             builder.HasIndex(x => x.Email);
-            builder.HasIndex(x => new { x.CompanyId, x.Name });
+            builder.HasIndex(x => new { x.ClerkOrganizationId, x.Name });
 
             // Relationships
             builder.HasMany(x => x.Orders)

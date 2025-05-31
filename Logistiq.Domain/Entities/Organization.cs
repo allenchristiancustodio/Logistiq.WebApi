@@ -26,7 +26,6 @@ namespace Logistiq.Domain.Entities
         public virtual ICollection<Expense> Expenses { get; set; } = new List<Expense>();
         public virtual Subscription? Subscription { get; set; }
 
-        // For Future Upgrade
-        //public virtual ICollection<Warehouse> Warehouses { get; set; } = new List<Warehouse>();
+        public virtual ICollection<Warehouse> Warehouses { get; set; } = new List<Warehouse>();
     }
 }

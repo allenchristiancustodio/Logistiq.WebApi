@@ -16,6 +16,7 @@ namespace Logistiq.Domain.Entities
 
         // Navigation Properties
         public virtual Category? ParentCategory { get; set; }
+        public virtual Organization Organization { get; set; } = null!;
         public virtual ICollection<Category> SubCategories { get; set; } = new List<Category>();
         public virtual ICollection<Product> Products { get; set; } = new List<Product>();
     }

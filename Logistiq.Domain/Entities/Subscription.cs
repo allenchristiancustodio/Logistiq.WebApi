@@ -18,10 +18,15 @@ namespace Logistiq.Domain.Entities
         public DateTime? TrialEndDate { get; set; }
 
         // Plan Limits
-        public int MaxUsers { get; set; } = 1;
+        // Plan Limits
+        public int MaxUsers { get; set; } = 5;
         public int MaxProducts { get; set; } = 100;
-        public bool HasInvoicing { get; set; } = false;
+        public int MaxOrders { get; set; } = 1000;
+        public int MaxWarehouses { get; set; } = 1;
+        public bool HasAdvancedReporting { get; set; } = false;
         public bool HasReporting { get; set; } = false;
+        public bool HasInvoicing { get; set; } = false;
+
 
         // Navigation Properties
         public virtual Organization Organization { get; set; } = null!;

@@ -23,20 +23,19 @@ namespace Logistiq.Persistence.Configurations
                 .HasMaxLength(500);
 
             // Indexes
-            builder.HasIndex(x => new { x.CompanyId, x.Name })
-                .IsUnique(); // Unique category names per company
+            builder.HasIndex(x => new { x.ClerkOrganizationId, x.Name })
+                .IsUnique();
 
-            // Self-referencing relationship
             builder.HasOne(x => x.ParentCategory)
                 .WithMany(x => x.SubCategories)
                 .HasForeignKey(x => x.ParentCategoryId)
-                .OnDelete(DeleteBehavior.Restrict); // Prevent cascading deletes
+                .OnDelete(DeleteBehavior.Restrict);
 
             // Relationships
             builder.HasMany(x => x.Products)
                 .WithOne(x => x.Category)
                 .HasForeignKey(x => x.CategoryId)
-                .OnDelete(DeleteBehavior.Restrict);// Don't delete products when category is deleted
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }
