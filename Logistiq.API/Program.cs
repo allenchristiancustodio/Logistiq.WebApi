@@ -12,6 +12,11 @@ using Logistiq.Application.Products.Commands.CreateProduct;
 using Microsoft.IdentityModel.Tokens;
 using Logistiq.API.Middleware;
 using System.Security.Claims;
+using Logistiq.Application.Users;
+using Logistiq.Application.Organizations.DTOs;
+using Logistiq.Application.Organizations;
+using Logistiq.Application.Products;
+using Logistiq.Application.Products.Validation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,31 +27,25 @@ builder.Services.AddControllers();
 builder.Services.AddDbContext<LogistiqDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// MediatR
-builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(CreateProductCommand).Assembly));
-
 // FluentValidation
-builder.Services.AddValidatorsFromAssembly(typeof(CreateProductCommandValidator).Assembly);
+builder.Services.AddValidatorsFromAssemblyContaining<CreateProductValidator>();
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehaviour<,>));
 
 // Repositories
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped(typeof(IRepository<,>), typeof(Repository<,>));
-builder.Services.AddScoped(typeof(ITenantRepository<>), typeof(TenantRepository<>));
-builder.Services.AddScoped(typeof(ITenantRepository<,>), typeof(TenantRepository<,>));
 
 // Specific repository registrations
 builder.Services.AddScoped<IRepository<ApplicationUser>, Repository<ApplicationUser>>();
-builder.Services.AddScoped<IRepository<Company>, Repository<Company>>();
-builder.Services.AddScoped<IRepository<CompanyUser>, Repository<CompanyUser>>();
 builder.Services.AddScoped<IRepository<Subscription>, Repository<Subscription>>();
-builder.Services.AddScoped<IUserRepository, UserRepository>();
+
 
 // Services
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
-builder.Services.AddScoped<ICompanyManagementService, CompanyManagementService>();
+builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 // JWT Authentication for Clerk
 builder.Services.AddAuthentication("Bearer")
@@ -58,16 +57,12 @@ builder.Services.AddAuthentication("Bearer")
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidateAudience = false, 
+            ValidateAudience = false,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
             ClockSkew = TimeSpan.FromMinutes(5),
-
-            // Clerk uses 'sub' for the user ID
             NameClaimType = "sub",
             RoleClaimType = "role",
-
-            // Set the valid issuer to match your Clerk domain
             ValidIssuer = "https://master-grouse-87.clerk.accounts.dev",
         };
 
@@ -78,62 +73,35 @@ builder.Services.AddAuthentication("Bearer")
                 try
                 {
                     var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                    var userRepository = context.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
+                    var organizationService = context.HttpContext.RequestServices.GetRequiredService<IOrganizationService>();
 
-                    // Log all claims for debugging
                     var claims = context.Principal?.Claims?.ToList() ?? new List<Claim>();
-                    logger.LogInformation("Token validated successfully! Claims: {Claims}",
+                    logger.LogInformation("JWT validated with claims: {Claims}",
                         string.Join(", ", claims.Select(c => $"{c.Type}={c.Value}")));
 
-                    // Extract Clerk user ID - try multiple claim types
-                    var clerkUserId = context.Principal?.FindFirst("sub")?.Value
-                                   ?? context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                                   ?? context.Principal?.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+                    // Extract organization from JWT
+                    var organizationId = context.Principal?.FindFirst("org_id")?.Value
+                                      ?? context.Principal?.FindFirst("organization_id")?.Value;
 
-                    // Extract email - try multiple claim types  
-                    var email = context.Principal?.FindFirst("email")?.Value
-                             ?? context.Principal?.FindFirst(ClaimTypes.Email)?.Value
-                             ?? context.Principal?.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
-
-                    logger.LogInformation("Extracted - Clerk user: {ClerkUserId}, Email: {Email}",
-                        clerkUserId, email ?? "not_in_token");
-
-                    if (!string.IsNullOrEmpty(clerkUserId))
+                    if (!string.IsNullOrEmpty(organizationId))
                     {
-                        // Use the new Clerk method
-                        var user = await userRepository.GetUserWithCompaniesByClerkIdAsync(clerkUserId);
+                        // Auto-sync organization from Clerk context
+                        var organizationName = context.Principal?.FindFirst("org_name")?.Value
+                                            ?? context.Principal?.FindFirst("organization_name")?.Value
+                                            ?? "Unknown Organization";
 
-                        if (user != null)
+                        await organizationService.SyncOrganizationAsync(new SyncOrganizationRequest
                         {
-                            var activeCompanyUser = user.CompanyUsers?.FirstOrDefault(cu => cu.IsActive);
-                            if (activeCompanyUser != null)
-                            {
-                                var identity = context.Principal?.Identity as ClaimsIdentity;
-                                identity?.AddClaim(new Claim("company_id", activeCompanyUser.CompanyId.ToString()));
+                            Name = organizationName
+                        });
 
-                                logger.LogInformation("Added company claim: {CompanyId} for user: {ClerkUserId}",
-                                    activeCompanyUser.CompanyId, clerkUserId);
-                            }
-                            else
-                            {
-                                logger.LogInformation("User has no active company: {ClerkUserId}", clerkUserId);
-                            }
-                        }
-                        else
-                        {
-                            logger.LogInformation("User not found in database: {ClerkUserId} - user may need to be created via webhook", clerkUserId);
-                        }
-                    }
-                    else
-                    {
-                        logger.LogWarning("Could not extract user ID from token claims");
+                        logger.LogInformation("Organization synced: {OrganizationId}", organizationId);
                     }
                 }
                 catch (Exception ex)
                 {
                     var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                    logger.LogError(ex, "Error during token validation");
-                    // Don't fail authentication, just log the error
+                    logger.LogError(ex, "Error during JWT validation");
                 }
             },
         };

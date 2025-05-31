@@ -13,28 +13,19 @@ public class CurrentUserService : ICurrentUserService
         _httpContextAccessor = httpContextAccessor;
     }
 
-    public string? UserId => _httpContextAccessor.HttpContext?.User?.FindFirstValue("sub"); // Use "sub" claim from Kinde
-
+    public string? UserId => _httpContextAccessor.HttpContext?.User?.FindFirstValue("sub");
     public string? Email => _httpContextAccessor.HttpContext?.User?.FindFirstValue("email");
-
     public bool IsAuthenticated => _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false;
+    public string? OrganizationId => _httpContextAccessor.HttpContext?.User?.FindFirstValue("org_id")
+                                  ?? _httpContextAccessor.HttpContext?.User?.FindFirstValue("organization_id");
 
-    public Guid? CompanyId
+    public async Task<string?> GetCurrentOrganizationIdAsync()
     {
-        get
-        {
-            var companyIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirstValue("company_id");
-            return Guid.TryParse(companyIdClaim, out var companyId) ? companyId : null;
-        }
-    }
-
-    public async Task<Guid?> GetCurrentCompanyIdAsync()
-    {
-        return CompanyId; // Already available from claims
+        return OrganizationId;
     }
 
     public async Task<string?> GetCurrentUserIdAsync()
     {
-        return UserId; // Already available from claims
+        return UserId;
     }
 }

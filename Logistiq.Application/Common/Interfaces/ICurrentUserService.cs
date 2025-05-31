@@ -1,13 +1,12 @@
-﻿
-namespace Logistiq.Application.Common.Interfaces
+﻿namespace Logistiq.Application.Common.Interfaces
 {
     public interface ICurrentUserService
     {
         string? UserId { get; }
         string? Email { get; }
-        Guid? CompanyId { get; }
+        string? OrganizationId { get; }
         bool IsAuthenticated { get; }
-        Task<Guid?> GetCurrentCompanyIdAsync();
+        Task<string?> GetCurrentOrganizationIdAsync();
         Task<string?> GetCurrentUserIdAsync();
     }
 }

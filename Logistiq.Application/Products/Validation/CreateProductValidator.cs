@@ -1,10 +1,11 @@
 ﻿using FluentValidation;
+using Logistiq.Application.Products.DTOs;
 
-namespace Logistiq.Application.Products.Commands.CreateProduct;
+namespace Logistiq.Application.Products.Validation;
 
-public class CreateProductCommandValidator : AbstractValidator<CreateProductCommand>
+public class CreateProductValidator : AbstractValidator<CreateProductRequest>
 {
-    public CreateProductCommandValidator()
+    public CreateProductValidator()
     {
         RuleFor(x => x.Name)
             .NotEmpty().WithMessage("Product name is required")
