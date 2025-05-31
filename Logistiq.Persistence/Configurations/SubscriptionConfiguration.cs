@@ -38,7 +38,7 @@ namespace Logistiq.Persistence.Configurations
 
             builder.HasIndex(x => x.StripeCustomerId);
             builder.HasIndex(x => x.StripeSubscriptionId);
-            builder.HasIndex(x => x.CompanyId)
+            builder.HasIndex(x => x.ClerkOrganizationId)
                 .IsUnique();
         }
     }

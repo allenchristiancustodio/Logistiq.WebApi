@@ -43,7 +43,7 @@ namespace Logistiq.Persistence.Configurations
                 .HasMaxLength(1000);
 
             // Indexes
-            builder.HasIndex(x => new { x.CompanyId, x.OrderNumber })
+            builder.HasIndex(x => new { x.ClerkOrganizationId, x.OrderNumber })
                 .IsUnique(); // Unique order numbers per company
 
             builder.HasIndex(x => x.OrderDate);

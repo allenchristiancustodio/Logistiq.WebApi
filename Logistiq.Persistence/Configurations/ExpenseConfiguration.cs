@@ -22,7 +22,7 @@ namespace Logistiq.Persistence.Configurations
             builder.Property(x => x.Description)
                 .HasMaxLength(500);
 
-            builder.HasIndex(x => x.CompanyId);
+            builder.HasIndex(x => x.ClerkOrganizationId);
             builder.HasIndex(x => x.CategoryId);
             builder.HasIndex(x => x.CreatedAt);
 

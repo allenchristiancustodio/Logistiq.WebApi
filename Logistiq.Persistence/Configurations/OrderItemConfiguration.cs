@@ -30,9 +30,9 @@ namespace Logistiq.Persistence.Configurations
             builder.HasIndex(x => new { x.OrderId, x.ProductId });
 
 
-            builder.HasOne(x => x.Company)
+            builder.HasOne(x => x.Organization)
               .WithMany() // No navigation property from Company
-              .HasForeignKey(x => x.CompanyId)
+              .HasForeignKey(x => x.ClerkOrganizationId)
               .OnDelete(DeleteBehavior.NoAction);
                 }
     }

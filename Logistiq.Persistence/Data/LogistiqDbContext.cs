@@ -18,7 +18,6 @@ public class LogistiqDbContext : DbContext
     }
 
     public DbSet<ApplicationUser> ApplicationUsers { get; set; } = null!;
-
     public DbSet<Organization> Organizations { get; set; } = null!;
     public DbSet<Product> Products { get; set; } = null!;
     public DbSet<Category> Categories { get; set; } = null!;
@@ -32,11 +31,12 @@ public class LogistiqDbContext : DbContext
     public DbSet<Warehouse> Warehouses { get; set; } = null!;
     public DbSet<InventoryMovement> InventoryMovements { get; set; } = null!;
 
-
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Apply all entity configurations
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
 
+        // Apply soft delete filters only (not organization filters)
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
             if (typeof(ISoftDeletable).IsAssignableFrom(entityType.ClrType))
@@ -50,38 +50,6 @@ public class LogistiqDbContext : DbContext
             }
         }
 
-        var currentOrgId = _currentUserService.OrganizationId;
-        if (!string.IsNullOrEmpty(currentOrgId))
-        {
-            // Add organization filters for all organization entities
-            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
-            {
-                if (typeof(IOrganizationEntity).IsAssignableFrom(entityType.ClrType))
-                {
-                    var parameter = Expression.Parameter(entityType.ClrType, "e");
-                    var property = Expression.Property(parameter, nameof(IOrganizationEntity.ClerkOrganizationId));
-                    var constant = Expression.Constant(currentOrgId);
-                    var equals = Expression.Equal(property, constant);
-                    var lambda = Expression.Lambda(equals, parameter);
-
-                    modelBuilder.Entity(entityType.ClrType).HasQueryFilter(lambda);
-                }
-            }
-        }
-        if (!string.IsNullOrEmpty(currentOrgId))
-        {
-            // Products
-            modelBuilder.Entity<Product>().HasQueryFilter(p =>
-                p.ClerkOrganizationId == currentOrgId && !p.IsDeleted);
-
-            // Categories
-            modelBuilder.Entity<Category>().HasQueryFilter(c =>
-                c.ClerkOrganizationId == currentOrgId && !c.IsDeleted);
-
-            // Add more entities as needed...
-        }
-
-
         base.OnModelCreating(modelBuilder);
     }
 
@@ -93,7 +61,7 @@ public class LogistiqDbContext : DbContext
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        // Keep your existing audit logic
+        // Set audit fields
         foreach (var entry in ChangeTracker.Entries<IAuditableEntity>())
         {
             switch (entry.State)
@@ -110,15 +78,20 @@ public class LogistiqDbContext : DbContext
             }
         }
 
+        // Set organization context for new entities
         foreach (var entry in ChangeTracker.Entries<IOrganizationEntity>())
         {
             if (entry.State == EntityState.Added && string.IsNullOrEmpty(entry.Entity.ClerkOrganizationId))
             {
-                entry.Entity.ClerkOrganizationId = _currentUserService.OrganizationId ?? "";
+                var orgId = _currentUserService.OrganizationId;
+                if (!string.IsNullOrEmpty(orgId))
+                {
+                    entry.Entity.ClerkOrganizationId = orgId;
+                }
             }
         }
 
-        // Keep your existing soft delete logic
+        // Handle soft deletes
         foreach (var entry in ChangeTracker.Entries<ISoftDeletable>())
         {
             if (entry.State == EntityState.Deleted)

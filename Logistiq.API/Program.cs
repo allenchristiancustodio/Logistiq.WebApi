@@ -8,12 +8,10 @@ using Logistiq.Domain.Entities;
 using Logistiq.Infrastructure.Services;
 using Logistiq.Persistence.Data;
 using Logistiq.Persistence.Repositories;
-using Logistiq.Application.Products.Commands.CreateProduct;
 using Microsoft.IdentityModel.Tokens;
 using Logistiq.API.Middleware;
 using System.Security.Claims;
 using Logistiq.Application.Users;
-using Logistiq.Application.Organizations.DTOs;
 using Logistiq.Application.Organizations;
 using Logistiq.Application.Products;
 using Logistiq.Application.Products.Validation;
@@ -31,27 +29,43 @@ builder.Services.AddDbContext<LogistiqDbContext>(options =>
 builder.Services.AddValidatorsFromAssemblyContaining<CreateProductValidator>();
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehaviour<,>));
 
-// Repositories
+// Complete Repository Registration
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+// Standard repositories
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped(typeof(IRepository<,>), typeof(Repository<,>));
 
+// Organization-aware repositories
+builder.Services.AddScoped(typeof(IOrganizationRepository<>), typeof(OrganizationRepository<>));
+builder.Services.AddScoped(typeof(IOrganizationRepository<,>), typeof(OrganizationRepository<,>));
+
 // Specific repository registrations
 builder.Services.AddScoped<IRepository<ApplicationUser>, Repository<ApplicationUser>>();
+builder.Services.AddScoped<IRepository<Organization>, Repository<Organization>>();
 builder.Services.AddScoped<IRepository<Subscription>, Repository<Subscription>>();
 
+// Organization-specific repositories
+builder.Services.AddScoped<IOrganizationRepository<Product>, OrganizationRepository<Product>>();
+builder.Services.AddScoped<IOrganizationRepository<Category>, OrganizationRepository<Category>>();
+builder.Services.AddScoped<IOrganizationRepository<Order>, OrganizationRepository<Order>>();
+builder.Services.AddScoped<IOrganizationRepository<Customer>, OrganizationRepository<Customer>>();
+builder.Services.AddScoped<IOrganizationRepository<Supplier>, OrganizationRepository<Supplier>>();
 
-// Services
+// Complete Service Registration
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+
+// Application Services
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IOrganizationService, OrganizationService>();
 
 // JWT Authentication for Clerk
 builder.Services.AddAuthentication("Bearer")
     .AddJwtBearer("Bearer", options =>
     {
-        options.Authority = "https://master-grouse-87.clerk.accounts.dev";
+        options.Authority = builder.Configuration["Clerk:Authority"];
         options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
 
         options.TokenValidationParameters = new TokenValidationParameters
@@ -63,7 +77,7 @@ builder.Services.AddAuthentication("Bearer")
             ClockSkew = TimeSpan.FromMinutes(5),
             NameClaimType = "sub",
             RoleClaimType = "role",
-            ValidIssuer = "https://master-grouse-87.clerk.accounts.dev",
+            ValidIssuer = builder.Configuration["Clerk:Authority"],
         };
 
         options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
@@ -90,7 +104,7 @@ builder.Services.AddAuthentication("Bearer")
                                             ?? context.Principal?.FindFirst("organization_name")?.Value
                                             ?? "Unknown Organization";
 
-                        await organizationService.SyncOrganizationAsync(new SyncOrganizationRequest
+                        await organizationService.SyncOrganizationAsync(new Logistiq.Application.Organizations.DTOs.SyncOrganizationRequest
                         {
                             Name = organizationName
                         });
@@ -116,7 +130,6 @@ builder.Services.AddCors(options =>
     {
         if (builder.Environment.IsDevelopment())
         {
-            // More permissive in development
             policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
                   .AllowAnyHeader()
                   .AllowAnyMethod()
@@ -125,8 +138,7 @@ builder.Services.AddCors(options =>
         }
         else
         {
-            // More restrictive in production
-            policy.WithOrigins("https://yourdomain.com") // Replace with your production domain
+            policy.WithOrigins("https://yourdomain.com")
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
@@ -193,13 +205,13 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Add a health check endpoint
+// Health check endpoint
 app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Timestamp = DateTime.UtcNow }));
 
 // Startup logging
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
 logger.LogInformation("Logistiq API starting with Clerk authentication");
-logger.LogInformation("Clerk Authority: https://master-grouse-87.clerk.accounts.dev");
+logger.LogInformation("Clerk Authority: {Authority}", builder.Configuration["Clerk:Authority"]);
 logger.LogInformation("Environment: {Environment}", app.Environment.EnvironmentName);
 
 // Database Migration

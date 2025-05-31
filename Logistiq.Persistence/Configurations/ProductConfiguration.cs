@@ -32,7 +32,7 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
             .HasConversion<int>()
             .IsRequired();
 
-        builder.HasIndex(x => new { x.CompanyId, x.Sku })
+        builder.HasIndex(x => new { x.ClerkOrganizationId, x.Sku })
             .IsUnique(); 
 
         builder.HasIndex(x => x.Name);

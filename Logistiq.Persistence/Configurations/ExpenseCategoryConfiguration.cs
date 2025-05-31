@@ -23,7 +23,7 @@ namespace Logistiq.Persistence.Configurations
                 .HasMaxLength(500);
 
             // Indexes
-            builder.HasIndex(x => new { x.CompanyId, x.Name })
+            builder.HasIndex(x => new { x.ClerkOrganizationId, x.Name })
                 .IsUnique(); // Unique category names per company
         }
     }
