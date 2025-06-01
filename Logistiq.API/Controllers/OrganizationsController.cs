@@ -44,4 +44,48 @@ public class OrganizationsController : ControllerBase
             return BadRequest(new { error = ex.Message });
         }
     }
+
+    [HttpPost("complete-setup")]
+    public async Task<ActionResult<OrganizationResponse>> CompleteOrganizationSetup([FromBody] CompleteOrganizationSetupRequest request)
+    {
+        try
+        {
+            var organization = await _organizationService.CompleteOrganizationSetupAsync(request);
+            return Ok(organization);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound("Organization not found");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPut("current")]
+    public async Task<ActionResult<OrganizationResponse>> UpdateCurrentOrganization([FromBody] UpdateOrganizationRequest request)
+    {
+        try
+        {
+            var organization = await _organizationService.UpdateOrganizationAsync(request);
+            return Ok(organization);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound("Organization not found");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 }

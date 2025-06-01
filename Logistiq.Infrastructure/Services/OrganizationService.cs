@@ -24,33 +24,14 @@ public class OrganizationService : IOrganizationService
     public async Task<OrganizationResponse> SyncOrganizationAsync(SyncOrganizationRequest request)
     {
         var clerkOrgId = _currentUser.OrganizationId;
-
-        // If no organization context, try to find organization by name (for immediate post-creation sync)
         if (string.IsNullOrEmpty(clerkOrgId))
-        {
-            _logger.LogWarning("No organization context found, attempting to find by name: {Name}", request.Name);
-
-            // Try to find the most recently created organization with this name
-            var recentOrg = await _context.Organizations
-                .Where(o => o.Name == request.Name)
-                .OrderByDescending(o => o.CreatedAt)
-                .FirstOrDefaultAsync();
-
-            if (recentOrg != null)
-            {
-                _logger.LogInformation("Found organization by name: {OrgId} - {Name}", recentOrg.ClerkOrganizationId, recentOrg.Name);
-                return MapToResponse(recentOrg);
-            }
-
-            throw new UnauthorizedAccessException("No organization context found and unable to locate organization by name");
-        }
+            throw new UnauthorizedAccessException("No organization context found");
 
         var existingOrg = await _context.Organizations
             .FirstOrDefaultAsync(o => o.ClerkOrganizationId == clerkOrgId);
 
         if (existingOrg == null)
         {
-            // Create new organization
             existingOrg = new Organization
             {
                 ClerkOrganizationId = clerkOrgId,
@@ -63,15 +44,20 @@ public class OrganizationService : IOrganizationService
                 Phone = request.Phone,
                 Email = request.Email,
                 Website = request.Website,
-                IsActive = true
+                TaxId = request.TaxId,
+                BusinessRegistrationNumber = request.BusinessRegistrationNumber,
+                DefaultCurrency = request.DefaultCurrency ?? "USD",
+                TimeZone = request.TimeZone ?? "UTC",
+                DateFormat = request.DateFormat ?? "MM/dd/yyyy",
+                MultiLocationEnabled = request.MultiLocationEnabled ?? false,
+                IsActive = true,
+                HasCompletedSetup = false
             };
 
             _context.Organizations.Add(existingOrg);
-            _logger.LogInformation("Creating new organization: {OrgId} - {Name}", clerkOrgId, request.Name);
         }
         else
         {
-            // Update existing organization
             existingOrg.Name = request.Name;
             existingOrg.Slug = request.Slug ?? existingOrg.Slug;
             existingOrg.Description = request.Description ?? existingOrg.Description;
@@ -81,14 +67,83 @@ public class OrganizationService : IOrganizationService
             existingOrg.Phone = request.Phone ?? existingOrg.Phone;
             existingOrg.Email = request.Email ?? existingOrg.Email;
             existingOrg.Website = request.Website ?? existingOrg.Website;
-
-            _logger.LogInformation("Updating existing organization: {OrgId} - {Name}", clerkOrgId, request.Name);
+            existingOrg.TaxId = request.TaxId ?? existingOrg.TaxId;
+            existingOrg.BusinessRegistrationNumber = request.BusinessRegistrationNumber ?? existingOrg.BusinessRegistrationNumber;
+            existingOrg.DefaultCurrency = request.DefaultCurrency ?? existingOrg.DefaultCurrency;
+            existingOrg.TimeZone = request.TimeZone ?? existingOrg.TimeZone;
+            existingOrg.DateFormat = request.DateFormat ?? existingOrg.DateFormat;
+            existingOrg.MultiLocationEnabled = request.MultiLocationEnabled ?? existingOrg.MultiLocationEnabled;
         }
 
         await _context.SaveChangesAsync();
-
-        return MapToResponse(existingOrg);
+        return MapToOrganizationResponse(existingOrg);
     }
+
+    // Add new method for organization updates
+    public async Task<OrganizationResponse> UpdateOrganizationAsync(UpdateOrganizationRequest request)
+    {
+        var clerkOrgId = _currentUser.OrganizationId;
+        if (string.IsNullOrEmpty(clerkOrgId))
+            throw new UnauthorizedAccessException("No organization context found");
+
+        var organization = await _context.Organizations
+            .FirstOrDefaultAsync(o => o.ClerkOrganizationId == clerkOrgId);
+
+        if (organization == null)
+            throw new KeyNotFoundException("Organization not found");
+
+        // Update all provided fields
+        if (request.Description != null) organization.Description = request.Description;
+        if (request.Industry != null) organization.Industry = request.Industry;
+        if (request.Address != null) organization.Address = request.Address;
+        if (request.Phone != null) organization.Phone = request.Phone;
+        if (request.Email != null) organization.Email = request.Email;
+        if (request.Website != null) organization.Website = request.Website;
+        if (request.TaxId != null) organization.TaxId = request.TaxId;
+        if (request.BusinessRegistrationNumber != null) organization.BusinessRegistrationNumber = request.BusinessRegistrationNumber;
+        if (request.DefaultCurrency != null) organization.DefaultCurrency = request.DefaultCurrency;
+        if (request.TimeZone != null) organization.TimeZone = request.TimeZone;
+        if (request.DateFormat != null) organization.DateFormat = request.DateFormat;
+        if (request.MultiLocationEnabled.HasValue) organization.MultiLocationEnabled = request.MultiLocationEnabled.Value;
+
+        await _context.SaveChangesAsync();
+        return MapToOrganizationResponse(organization);
+    }
+
+    public async Task<OrganizationResponse> CompleteOrganizationSetupAsync(CompleteOrganizationSetupRequest request)
+    {
+        var clerkOrgId = _currentUser.OrganizationId;
+        if (string.IsNullOrEmpty(clerkOrgId))
+            throw new UnauthorizedAccessException("No organization context found");
+
+        var organization = await _context.Organizations
+            .FirstOrDefaultAsync(o => o.ClerkOrganizationId == clerkOrgId);
+
+        if (organization == null)
+            throw new KeyNotFoundException("Organization not found");
+
+        // Update all provided fields
+        if (request.Description != null) organization.Description = request.Description;
+        if (request.Industry != null) organization.Industry = request.Industry;
+        if (request.Address != null) organization.Address = request.Address;
+        if (request.Phone != null) organization.Phone = request.Phone;
+        if (request.Email != null) organization.Email = request.Email;
+        if (request.Website != null) organization.Website = request.Website;
+        if (request.TaxId != null) organization.TaxId = request.TaxId;
+        if (request.BusinessRegistrationNumber != null) organization.BusinessRegistrationNumber = request.BusinessRegistrationNumber;
+        if (request.DefaultCurrency != null) organization.DefaultCurrency = request.DefaultCurrency;
+        if (request.TimeZone != null) organization.TimeZone = request.TimeZone;
+        if (request.DateFormat != null) organization.DateFormat = request.DateFormat;
+        if (request.MultiLocationEnabled.HasValue) organization.MultiLocationEnabled = request.MultiLocationEnabled.Value;
+
+        // Mark setup as completed
+        organization.HasCompletedSetup = true;
+        organization.SetupCompletedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return MapToOrganizationResponse(organization);
+    }
+
 
     public async Task<OrganizationResponse?> GetCurrentOrganizationAsync()
     {
@@ -104,10 +159,10 @@ public class OrganizationService : IOrganizationService
         var organization = await _context.Organizations
             .FirstOrDefaultAsync(o => o.ClerkOrganizationId == clerkOrganizationId);
 
-        return organization == null ? null : MapToResponse(organization);
+        return organization == null ? null : MapToOrganizationResponse(organization);
     }
 
-    private static OrganizationResponse MapToResponse(Organization org)
+    private static OrganizationResponse MapToOrganizationResponse(Organization org)
     {
         return new OrganizationResponse
         {
@@ -122,8 +177,18 @@ public class OrganizationService : IOrganizationService
             Phone = org.Phone,
             Email = org.Email,
             Website = org.Website,
+            TaxId = org.TaxId,
+            BusinessRegistrationNumber = org.BusinessRegistrationNumber,
+            DefaultCurrency = org.DefaultCurrency,
+            TimeZone = org.TimeZone,
+            DateFormat = org.DateFormat,
+            MultiLocationEnabled = org.MultiLocationEnabled,
+            MaxUsers = org.MaxUsers,
+            MaxProducts = org.MaxProducts,
             IsActive = org.IsActive,
-            CreatedAt = org.CreatedAt
+            CreatedAt = org.CreatedAt,
+            HasCompletedSetup = org.HasCompletedSetup,
+            SetupCompletedAt = org.SetupCompletedAt
         };
     }
 }

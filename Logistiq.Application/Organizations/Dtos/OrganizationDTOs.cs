@@ -11,6 +11,28 @@ public class SyncOrganizationRequest
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string? Website { get; set; }
+    public string? TaxId { get; set; }
+    public string? BusinessRegistrationNumber { get; set; }
+    public string? DefaultCurrency { get; set; }
+    public string? TimeZone { get; set; }
+    public string? DateFormat { get; set; }
+    public bool? MultiLocationEnabled { get; set; }
+}
+
+public class UpdateOrganizationRequest
+{
+    public string? Description { get; set; }
+    public string? Industry { get; set; }
+    public string? Address { get; set; }
+    public string? Phone { get; set; }
+    public string? Email { get; set; }
+    public string? Website { get; set; }
+    public string? TaxId { get; set; }
+    public string? BusinessRegistrationNumber { get; set; }
+    public string? DefaultCurrency { get; set; }
+    public string? TimeZone { get; set; }
+    public string? DateFormat { get; set; }
+    public bool? MultiLocationEnabled { get; set; }
 }
 
 public class OrganizationResponse
@@ -26,6 +48,33 @@ public class OrganizationResponse
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string? Website { get; set; }
+    public string? TaxId { get; set; }
+    public string? BusinessRegistrationNumber { get; set; }
+    public string? DefaultCurrency { get; set; }
+    public string? TimeZone { get; set; }
+    public string? DateFormat { get; set; }
+    public bool MultiLocationEnabled { get; set; }
+    public int MaxUsers { get; set; }
+    public int MaxProducts { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    public bool HasCompletedSetup { get; set; }
+    public DateTime? SetupCompletedAt { get; set; }
+}
+
+public class CompleteOrganizationSetupRequest
+{
+    public string? Description { get; set; }
+    public string? Industry { get; set; }
+    public string? Address { get; set; }
+    public string? Phone { get; set; }
+    public string? Email { get; set; }
+    public string? Website { get; set; }
+    public string? TaxId { get; set; }
+    public string? BusinessRegistrationNumber { get; set; }
+    public string? DefaultCurrency { get; set; }
+    public string? TimeZone { get; set; }
+    public string? DateFormat { get; set; }
+    public bool? MultiLocationEnabled { get; set; }
 }

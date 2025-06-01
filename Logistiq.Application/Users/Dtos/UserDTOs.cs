@@ -7,6 +7,15 @@ public class SyncUserRequest
     public string LastName { get; set; } = string.Empty;
     public string? Phone { get; set; }
     public string? ImageUrl { get; set; }
+    public string? Preferences { get; set; }
+}
+
+public class UpdateUserProfileRequest
+{
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public string? Phone { get; set; }
+    public string? Preferences { get; set; }
 }
 
 public class UserResponse
@@ -20,5 +29,19 @@ public class UserResponse
     public string? CurrentOrganizationId { get; set; }
     public string? Phone { get; set; }
     public string? ImageUrl { get; set; }
+    public string? Preferences { get; set; }
     public bool IsActive { get; set; }
+    public DateTime? LastSeenAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+
+    public bool HasCompletedOnboarding { get; set; }
+    public DateTime? OnboardingCompletedAt { get; set; }
+}
+
+public class CompleteUserOnboardingRequest
+{
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public string? Phone { get; set; }
+    public string? Preferences { get; set; }
 }

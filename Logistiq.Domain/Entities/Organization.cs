@@ -27,6 +27,10 @@ namespace Logistiq.Domain.Entities
         public int MaxUsers { get; set; } = 5;
         public int MaxProducts { get; set; } = 100;
 
+        //check if the organization has completed onboarding
+        public bool HasCompletedSetup { get; set; } = false;
+        public DateTime? SetupCompletedAt { get; set; }
+
         // Navigation Properties
         public virtual ICollection<Product> Products { get; set; } = new List<Product>();
         public virtual ICollection<Order> Orders { get; set; } = new List<Order>();

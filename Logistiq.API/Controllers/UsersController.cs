@@ -35,6 +35,50 @@ public class UsersController : ControllerBase
         }
     }
 
+    [HttpPut("profile")]
+    public async Task<ActionResult<UserResponse>> UpdateUserProfile([FromBody] UpdateUserProfileRequest request)
+    {
+        try
+        {
+            var user = await _userService.UpdateUserProfileAsync(request);
+            return Ok(user);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound("User not found");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Unauthorized();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("complete-onboarding")]
+    public async Task<ActionResult<UserResponse>> CompleteUserOnboarding([FromBody] CompleteUserOnboardingRequest request)
+    {
+        try
+        {
+            var user = await _userService.CompleteUserOnboardingAsync(request);
+            return Ok(user);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound("User not found");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Unauthorized();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpGet("me")]
     public async Task<ActionResult<UserResponse>> GetCurrentUser()
     {

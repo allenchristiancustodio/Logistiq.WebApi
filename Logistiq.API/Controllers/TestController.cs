@@ -31,8 +31,10 @@ public class TestController : ControllerBase
     public ActionResult AuthTest()
     {
         var claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList();
-        var clerkUserId = User.FindFirst("sub")?.Value;
-        var email = User.FindFirst("email")?.Value;
+        var clerkUserId = User.FindFirst("clerkId")?.Value;
+        var email = User.FindFirst("emailaddress")?.Value;
+        var org_imageUrl = User.FindFirst("org.imageUrl")?.Value;
+       
 
         // Try to get organization ID from different possible claim locations
         var organizationId = User.FindFirst("org_id")?.Value
@@ -86,6 +88,7 @@ public class TestController : ControllerBase
             Message = "Authentication successful!",
             ClerkUserId = clerkUserId,
             Email = email,
+            OrgImageUrl = org_imageUrl,
             OrganizationId = organizationId,
             OrganizationName = organizationName,
             AllClaims = claims,

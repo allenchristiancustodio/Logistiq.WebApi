@@ -38,38 +38,81 @@ public class UserService : IUserService
                 LastName = request.LastName,
                 Phone = request.Phone,
                 ImageUrl = request.ImageUrl,
+                Preferences = request.Preferences,
                 IsActive = true,
-                CurrentOrganizationId = _currentUser.OrganizationId
+                CurrentOrganizationId = _currentUser.OrganizationId,
+                LastSeenAt = DateTime.UtcNow,
+                HasCompletedOnboarding = false
             };
 
             _context.ApplicationUsers.Add(existingUser);
         }
         else
         {
-            // Update existing user
+            // Update existing user with all fields
             existingUser.Email = request.Email;
             existingUser.FirstName = request.FirstName;
             existingUser.LastName = request.LastName;
             existingUser.Phone = request.Phone ?? existingUser.Phone;
             existingUser.ImageUrl = request.ImageUrl ?? existingUser.ImageUrl;
+            existingUser.Preferences = request.Preferences ?? existingUser.Preferences;
             existingUser.CurrentOrganizationId = _currentUser.OrganizationId;
+            existingUser.LastSeenAt = DateTime.UtcNow;
         }
 
         await _context.SaveChangesAsync();
+        return MapToUserResponse(existingUser);
+    }
 
-        return new UserResponse
-        {
-            Id = existingUser.Id.ToString(),
-            ClerkUserId = existingUser.ClerkUserId,
-            Email = existingUser.Email,
-            FirstName = existingUser.FirstName,
-            LastName = existingUser.LastName,
-            FullName = $"{existingUser.FirstName} {existingUser.LastName}".Trim(),
-            CurrentOrganizationId = existingUser.CurrentOrganizationId,
-            Phone = existingUser.Phone,
-            ImageUrl = existingUser.ImageUrl,
-            IsActive = existingUser.IsActive
-        };
+    // Add new method for profile updates
+    public async Task<UserResponse> UpdateUserProfileAsync(UpdateUserProfileRequest request)
+    {
+        var clerkUserId = _currentUser.UserId;
+        if (string.IsNullOrEmpty(clerkUserId))
+            throw new UnauthorizedAccessException("User not authenticated");
+
+        var user = await _context.ApplicationUsers
+            .FirstOrDefaultAsync(u => u.ClerkUserId == clerkUserId);
+
+        if (user == null)
+            throw new KeyNotFoundException("User not found");
+
+        // Update profile fields
+        user.FirstName = request.FirstName;
+        user.LastName = request.LastName;
+        user.Phone = request.Phone;
+        user.Preferences = request.Preferences;
+        user.LastSeenAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return MapToUserResponse(user);
+    }
+
+    public async Task<UserResponse> CompleteUserOnboardingAsync(CompleteUserOnboardingRequest request)
+    {
+        var clerkUserId = _currentUser.UserId;
+        if (string.IsNullOrEmpty(clerkUserId))
+            throw new UnauthorizedAccessException("User not authenticated");
+
+        var user = await _context.ApplicationUsers
+            .FirstOrDefaultAsync(u => u.ClerkUserId == clerkUserId);
+
+        if (user == null)
+            throw new KeyNotFoundException("User not found");
+
+        // Update profile fields
+        user.FirstName = request.FirstName;
+        user.LastName = request.LastName;
+        user.Phone = request.Phone;
+        user.Preferences = request.Preferences;
+        user.LastSeenAt = DateTime.UtcNow;
+
+        // Mark onboarding as completed
+        user.HasCompletedOnboarding = true;
+        user.OnboardingCompletedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return MapToUserResponse(user);
     }
 
     public async Task<UserResponse?> GetCurrentUserAsync()
@@ -103,6 +146,28 @@ public class UserService : IUserService
             Phone = user.Phone,
             ImageUrl = user.ImageUrl,
             IsActive = user.IsActive
+        };
+    }
+
+    private static UserResponse MapToUserResponse(ApplicationUser user)
+    {
+        return new UserResponse
+        {
+            Id = user.Id.ToString(),
+            ClerkUserId = user.ClerkUserId,
+            Email = user.Email,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            FullName = $"{user.FirstName} {user.LastName}".Trim(),
+            CurrentOrganizationId = user.CurrentOrganizationId,
+            Phone = user.Phone,
+            ImageUrl = user.ImageUrl,
+            Preferences = user.Preferences,
+            IsActive = user.IsActive,
+            LastSeenAt = user.LastSeenAt,
+            CreatedAt = user.CreatedAt,
+            HasCompletedOnboarding = user.HasCompletedOnboarding,
+            OnboardingCompletedAt = user.OnboardingCompletedAt
         };
     }
 }

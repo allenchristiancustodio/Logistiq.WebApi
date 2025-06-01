@@ -21,5 +21,9 @@ namespace Logistiq.Domain.Entities
         public DateTime? LastSeenAt { get; set; }
 
         public string? CurrentOrganizationId { get; set; }
+
+        // chekc if the user has done onboarding
+        public bool HasCompletedOnboarding { get; set; } = false;
+        public DateTime? OnboardingCompletedAt { get; set; }
     }
 }
