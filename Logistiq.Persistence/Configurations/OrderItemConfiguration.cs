@@ -1,11 +1,6 @@
 ﻿using Logistiq.Domain.Entities;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Logistiq.Persistence.Configurations
 {
@@ -14,6 +9,10 @@ namespace Logistiq.Persistence.Configurations
         public void Configure(EntityTypeBuilder<OrderItem> builder)
         {
             builder.HasKey(x => x.Id);
+
+            builder.Property(x => x.ClerkOrganizationId)
+                .IsRequired()
+                .HasMaxLength(100);
 
             builder.Property(x => x.Quantity)
                 .IsRequired();
@@ -26,14 +25,8 @@ namespace Logistiq.Persistence.Configurations
                 .IsRequired()
                 .HasPrecision(18, 2);
 
-            // Composite index for performance
             builder.HasIndex(x => new { x.OrderId, x.ProductId });
-
-
-            builder.HasOne(x => x.Organization)
-              .WithMany() // No navigation property from Company
-              .HasForeignKey(x => x.ClerkOrganizationId)
-              .OnDelete(DeleteBehavior.NoAction);
-                }
+            builder.HasIndex(x => x.ClerkOrganizationId);
+        }
     }
 }

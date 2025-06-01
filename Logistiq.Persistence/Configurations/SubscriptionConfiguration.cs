@@ -10,6 +10,11 @@ namespace Logistiq.Persistence.Configurations
         {
             builder.HasKey(x => x.Id);
 
+            // Properties
+            builder.Property(x => x.ClerkOrganizationId)
+                .IsRequired()
+                .HasMaxLength(100);
+
             builder.Property(x => x.StripeCustomerId)
                 .HasMaxLength(100);
 
@@ -36,10 +41,10 @@ namespace Logistiq.Persistence.Configurations
             builder.Property(x => x.EndDate)
                 .IsRequired();
 
+            // Indexes
             builder.HasIndex(x => x.StripeCustomerId);
             builder.HasIndex(x => x.StripeSubscriptionId);
-            builder.HasIndex(x => x.ClerkOrganizationId)
-                .IsUnique();
+            builder.HasIndex(x => x.ClerkOrganizationId).IsUnique();
         }
     }
 }

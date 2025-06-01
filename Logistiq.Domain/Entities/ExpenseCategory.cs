@@ -12,5 +12,7 @@ namespace Logistiq.Domain.Entities
         public string ClerkOrganizationId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
+        public virtual Organization Organization { get; set; } = null!;
+        public virtual ICollection<Expense> Expenses { get; set; } = new List<Expense>();
     }
 }

@@ -4,6 +4,7 @@ using Logistiq.Domain.Common;
 using Logistiq.Domain.Entities;
 using System.Reflection;
 using System.Linq.Expressions;
+using Microsoft.Extensions.Logging;
 
 namespace Logistiq.Persistence.Data;
 
@@ -16,7 +17,6 @@ public class LogistiqDbContext : DbContext
     {
         _currentUserService = currentUserService;
     }
-
     public DbSet<ApplicationUser> ApplicationUsers { get; set; } = null!;
     public DbSet<Organization> Organizations { get; set; } = null!;
     public DbSet<Product> Products { get; set; } = null!;
@@ -31,12 +31,26 @@ public class LogistiqDbContext : DbContext
     public DbSet<Warehouse> Warehouses { get; set; } = null!;
     public DbSet<InventoryMovement> InventoryMovements { get; set; } = null!;
 
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        if (!optionsBuilder.IsConfigured)
+        {
+            optionsBuilder.EnableSensitiveDataLogging(false);
+            optionsBuilder.EnableDetailedErrors(false);
+
+            // Add logging in development
+            if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
+            {
+                optionsBuilder.LogTo(Console.WriteLine, LogLevel.Information);
+            }
+        }
+    }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Apply all entity configurations
+        // Apply all entity configurations from assembly
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
 
-        // Apply soft delete filters only (not organization filters)
+        // Apply soft delete filters
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
             if (typeof(ISoftDeletable).IsAssignableFrom(entityType.ClrType))

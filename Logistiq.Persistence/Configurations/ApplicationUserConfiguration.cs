@@ -2,38 +2,39 @@
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Logistiq.Domain.Entities;
 
-namespace Logistiq.Persistence.Configurations;
-
-public class ApplicationUserConfiguration : IEntityTypeConfiguration<ApplicationUser>
+namespace Logistiq.Persistence.Configurations
 {
-    public void Configure(EntityTypeBuilder<ApplicationUser> builder)
+    public class ApplicationUserConfiguration : IEntityTypeConfiguration<ApplicationUser>
     {
-        builder.HasKey(x => x.Id);
+        public void Configure(EntityTypeBuilder<ApplicationUser> builder)
+        {
+            builder.HasKey(x => x.Id);
 
-        builder.Property(x => x.ClerkUserId) 
-            .IsRequired()
-            .HasMaxLength(100);
+            builder.Property(x => x.ClerkUserId)
+                .IsRequired()
+                .HasMaxLength(100);
 
-        builder.Property(x => x.Email)
-            .IsRequired()
-            .HasMaxLength(255);
+            builder.Property(x => x.Email)
+                .IsRequired()
+                .HasMaxLength(255);
 
-        builder.Property(x => x.FirstName)
-            .IsRequired()
-            .HasMaxLength(100);
+            builder.Property(x => x.FirstName)
+                .IsRequired()
+                .HasMaxLength(100);
 
-        builder.Property(x => x.LastName)
-            .IsRequired()
-            .HasMaxLength(100);
+            builder.Property(x => x.LastName)
+                .IsRequired()
+                .HasMaxLength(100);
 
-        builder.Property(x => x.Phone)
-            .HasMaxLength(20);
+            builder.Property(x => x.Phone)
+                .HasMaxLength(20);
 
-        // Indexes
-        builder.HasIndex(x => x.ClerkUserId)
-            .IsUnique();
+            builder.Property(x => x.CurrentOrganizationId)
+                .HasMaxLength(100);
 
-        builder.HasIndex(x => x.Email);
-
+            // Indexes
+            builder.HasIndex(x => x.ClerkUserId).IsUnique();
+            builder.HasIndex(x => x.Email);
+        }
     }
 }

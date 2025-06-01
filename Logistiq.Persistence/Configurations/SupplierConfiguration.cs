@@ -1,16 +1,13 @@
-﻿using Logistiq.Domain.Entities;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
+﻿
 using Logistiq.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Logistiq.Persistence.Configurations
 {
-    public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
+    public class SupplierConfiguration : IEntityTypeConfiguration<Supplier>
     {
-        public void Configure(EntityTypeBuilder<Customer> builder)
+        public void Configure(EntityTypeBuilder<Supplier> builder)
         {
             builder.HasKey(x => x.Id);
 
@@ -21,6 +18,9 @@ namespace Logistiq.Persistence.Configurations
             builder.Property(x => x.Name)
                 .IsRequired()
                 .HasMaxLength(200);
+
+            builder.Property(x => x.ContactPerson)
+                .HasMaxLength(100);
 
             builder.Property(x => x.Email)
                 .HasMaxLength(255);
@@ -43,17 +43,8 @@ namespace Logistiq.Persistence.Configurations
             builder.Property(x => x.PostalCode)
                 .HasMaxLength(20);
 
-            builder.Property(x => x.TaxId)
-                .HasMaxLength(50);
-
-            builder.Property(x => x.Notes)
-                .HasMaxLength(1000);
-
-            // Indexes
             builder.HasIndex(x => new { x.ClerkOrganizationId, x.Name });
-            builder.HasIndex(x => new { x.ClerkOrganizationId, x.Email });
             builder.HasIndex(x => x.Email);
-
         }
     }
 }

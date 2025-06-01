@@ -13,7 +13,9 @@ namespace Logistiq.Domain.Entities
         public Guid CategoryId { get; set; }
         public decimal Amount { get; set; }
         public string? Description { get; set; }
-        // Navigation
+
+        // Navigation Properties
+        public virtual Organization Organization { get; set; } = null!;
         public virtual ExpenseCategory Category { get; set; } = null!;
     }
 }

@@ -2,15 +2,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-using Logistiq.Domain.Entities;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 namespace Logistiq.Persistence.Configurations
 {
-    public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
+    public class WarehouseConfiguration : IEntityTypeConfiguration<Warehouse>
     {
-        public void Configure(EntityTypeBuilder<Customer> builder)
+        public void Configure(EntityTypeBuilder<Warehouse> builder)
         {
             builder.HasKey(x => x.Id);
 
@@ -22,11 +18,8 @@ namespace Logistiq.Persistence.Configurations
                 .IsRequired()
                 .HasMaxLength(200);
 
-            builder.Property(x => x.Email)
-                .HasMaxLength(255);
-
-            builder.Property(x => x.Phone)
-                .HasMaxLength(20);
+            builder.Property(x => x.Description)
+                .HasMaxLength(500);
 
             builder.Property(x => x.Address)
                 .HasMaxLength(500);
@@ -43,17 +36,13 @@ namespace Logistiq.Persistence.Configurations
             builder.Property(x => x.PostalCode)
                 .HasMaxLength(20);
 
-            builder.Property(x => x.TaxId)
-                .HasMaxLength(50);
-
-            builder.Property(x => x.Notes)
-                .HasMaxLength(1000);
-
             // Indexes
-            builder.HasIndex(x => new { x.ClerkOrganizationId, x.Name });
-            builder.HasIndex(x => new { x.ClerkOrganizationId, x.Email });
-            builder.HasIndex(x => x.Email);
+            builder.HasIndex(x => new { x.ClerkOrganizationId, x.Name }).IsUnique();
 
+            builder.HasMany(x => x.InventoryMovements)
+                .WithOne(x => x.Warehouse)
+                .HasForeignKey(x => x.WarehouseId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

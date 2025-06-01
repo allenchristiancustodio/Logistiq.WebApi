@@ -21,12 +21,21 @@ namespace Logistiq.Domain.Entities
         public decimal DiscountAmount { get; set; }
         public decimal ShippingAmount { get; set; }
         public decimal TotalAmount { get; set; }
+
+        // Additional fields
         public string? Notes { get; set; }
         public string? ShippingAddress { get; set; }
         public string? BillingAddress { get; set; }
         public string? TrackingNumber { get; set; }
+        public string? CreatedByUserId { get; set; }
 
-        public string? CreatedByUserId { get; set; } 
+        public string? PurchaseOrderNumber { get; set; }
+        public DateTime? ShippedDate { get; set; }
+        public DateTime? DeliveredDate { get; set; }
+        public string? PaymentMethod { get; set; }
+        public string? PaymentStatus { get; set; } = "Pending";
+        public string? Currency { get; set; } = "USD";
+        public decimal ExchangeRate { get; set; } = 1.0m;
 
         // Navigation Properties
         public virtual Organization Organization { get; set; } = null!;

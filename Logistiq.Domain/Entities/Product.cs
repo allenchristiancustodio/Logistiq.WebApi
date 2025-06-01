@@ -16,8 +16,14 @@ namespace Logistiq.Domain.Entities
         public int StockQuantity { get; set; }
         public int? MinStockLevel { get; set; }
         public int? MaxStockLevel { get; set; }
-        public string? Unit { get; set; }
+        public string? Unit { get; set; } = "pcs"; // Default unit
         public ProductStatus Status { get; set; } = ProductStatus.Active;
+        public decimal? Weight { get; set; }
+        public string? Dimensions { get; set; }
+        public string? ImageUrl { get; set; }
+        public string? Tags { get; set; } // JSON or comma-separated
+        public bool TrackInventory { get; set; } = true;
+        public bool AllowBackorder { get; set; } = false;
 
         // Navigation Properties
         public virtual Organization Organization { get; set; } = null!; 
