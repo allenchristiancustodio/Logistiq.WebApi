@@ -178,19 +178,46 @@ public class WebhooksController : ControllerBase
         try
         {
             // Check if user already exists
-            var existingUser = await _userRepository.FirstOrDefaultAsync(u => u.ClerkUserId == userData.Id); // Updated
+            var existingUser = await _userRepository.FirstOrDefaultAsync(u => u.ClerkUserId == userData.Id);
             if (existingUser != null)
             {
                 _logger.LogInformation("User already exists: {UserId}", userData.Id);
                 return true;
             }
 
-            // Get email
-            var email = userData.EmailAddresses?.FirstOrDefault()?.EmailAddress;
+            // Get email - try multiple approaches
+            string? email = null;
+
+            if (userData.EmailAddresses != null && userData.EmailAddresses.Any())
+            {
+                // Try to get the primary email first
+                var primaryEmail = userData.EmailAddresses
+                    .FirstOrDefault(e => e.Id == userData.PrimaryEmailAddressId);
+
+                if (primaryEmail != null && !string.IsNullOrEmpty(primaryEmail.EmailAddress))
+                {
+                    email = primaryEmail.EmailAddress;
+                }
+                else
+                {
+                    // Fallback to first available email
+                    var firstEmail = userData.EmailAddresses.FirstOrDefault();
+                    if (firstEmail != null && !string.IsNullOrEmpty(firstEmail.EmailAddress))
+                    {
+                        email = firstEmail.EmailAddress;
+                    }
+                }
+            }
+
             if (string.IsNullOrEmpty(email))
             {
-                _logger.LogError("No email found for user: {UserId}", userData.Id);
-                return false;
+                _logger.LogError("No email found for user: {UserId}. EmailAddresses: {EmailAddresses}",
+                    userData.Id,
+                    userData.EmailAddresses?.Count ?? 0);
+
+                // Don't fail the webhook, but log the issue
+                // The user can still be created when they sync via the API
+                return true;
             }
 
             // Create user
@@ -206,12 +233,12 @@ public class WebhooksController : ControllerBase
             await _userRepository.AddAsync(newUser);
             await _unitOfWork.SaveChangesAsync();
 
-            _logger.LogInformation("Created user: {ClerkUserId} - {Email}", userData.Id, email);
+            _logger.LogInformation("Created user via webhook: {ClerkUserId} - {Email}", userData.Id, email);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to create user: {UserId}", userData.Id);
+            _logger.LogError(ex, "Failed to create user via webhook: {UserId}", userData.Id);
             return false;
         }
     }
@@ -220,32 +247,54 @@ public class WebhooksController : ControllerBase
     {
         try
         {
-            var user = await _userRepository.FirstOrDefaultAsync(u => u.ClerkUserId == userData.Id); // Updated
+            var user = await _userRepository.FirstOrDefaultAsync(u => u.ClerkUserId == userData.Id);
             if (user == null)
             {
-                // User doesn't exist, create it
+                // User doesn't exist, try to create it
+                _logger.LogInformation("User not found for update, attempting to create: {UserId}", userData.Id);
                 return await HandleUserCreated(userData);
             }
 
-            // Update user info
-            var email = userData.EmailAddresses?.FirstOrDefault()?.EmailAddress;
+            // Get email - same logic as creation
+            string? email = null;
+
+            if (userData.EmailAddresses != null && userData.EmailAddresses.Any())
+            {
+                var primaryEmail = userData.EmailAddresses
+                    .FirstOrDefault(e => e.Id == userData.PrimaryEmailAddressId);
+
+                if (primaryEmail != null && !string.IsNullOrEmpty(primaryEmail.EmailAddress))
+                {
+                    email = primaryEmail.EmailAddress;
+                }
+                else
+                {
+                    var firstEmail = userData.EmailAddresses.FirstOrDefault();
+                    if (firstEmail != null && !string.IsNullOrEmpty(firstEmail.EmailAddress))
+                    {
+                        email = firstEmail.EmailAddress;
+                    }
+                }
+            }
+
+            // Update user info - only update email if we found one
             if (!string.IsNullOrEmpty(email))
             {
                 user.Email = email;
-                user.FirstName = userData.FirstName ?? user.FirstName;
-                user.LastName = userData.LastName ?? user.LastName;
-
-                await _userRepository.UpdateAsync(user);
-                await _unitOfWork.SaveChangesAsync();
-
-                _logger.LogInformation("Updated user: {ClerkUserId}", userData.Id);
             }
 
+            user.FirstName = userData.FirstName ?? user.FirstName;
+            user.LastName = userData.LastName ?? user.LastName;
+
+            await _userRepository.UpdateAsync(user);
+            await _unitOfWork.SaveChangesAsync();
+
+            _logger.LogInformation("Updated user via webhook: {ClerkUserId}", userData.Id);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to update user: {UserId}", userData.Id);
+            _logger.LogError(ex, "Failed to update user via webhook: {UserId}", userData.Id);
             return false;
         }
     }

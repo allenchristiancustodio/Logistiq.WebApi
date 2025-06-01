@@ -93,6 +93,96 @@ builder.Services.AddAuthentication("Bearer")
                     logger.LogInformation("JWT validated with claims: {Claims}",
                         string.Join(", ", claims.Select(c => $"{c.Type}={c.Value}")));
 
+                    // Extract organization from JWT - try multiple claim locations
+                    var organizationId = context.Principal?.FindFirst("org_id")?.Value
+                                      ?? context.Principal?.FindFirst("organization_id")?.Value;
+
+                    // If not found in direct claims, try parsing from 'o' claim
+                    if (string.IsNullOrEmpty(organizationId))
+                    {
+                        var orgClaim = context.Principal?.FindFirst("o")?.Value;
+                        if (!string.IsNullOrEmpty(orgClaim))
+                        {
+                            try
+                            {
+                                var orgData = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(orgClaim);
+                                if (orgData.TryGetProperty("id", out var idElement))
+                                {
+                                    organizationId = idElement.GetString();
+                                }
+                            }
+                            catch (System.Text.Json.JsonException ex)
+                            {
+                                logger.LogWarning("Failed to parse organization claim: {Error}", ex.Message);
+                            }
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(organizationId))
+                    {
+                        // Auto-sync organization from Clerk context
+                        var organizationName = "Unknown Organization"; // Default fallback
+
+                        // Try to get org name from claims
+                        var orgNameFromClaim = context.Principal?.FindFirst("org_name")?.Value;
+                        if (!string.IsNullOrEmpty(orgNameFromClaim))
+                        {
+                            organizationName = orgNameFromClaim;
+                        }
+                        else
+                        {
+                            // Try to get from 'o' claim
+                            var orgClaim = context.Principal?.FindFirst("o")?.Value;
+                            if (!string.IsNullOrEmpty(orgClaim))
+                            {
+                                try
+                                {
+                                    var orgData = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(orgClaim);
+                                    if (orgData.TryGetProperty("id", out var idElement))
+                                    {
+                                        organizationName = idElement.GetString() ?? "Unknown Organization";
+                                    }
+                                }
+                                catch (System.Text.Json.JsonException)
+                                {
+                                    // Use default name if parsing fails
+                                }
+                            }
+                        }
+
+                        await organizationService.SyncOrganizationAsync(new Logistiq.Application.Organizations.DTOs.SyncOrganizationRequest
+                        {
+                            Name = organizationName
+                        });
+
+                        logger.LogInformation("Organization synced: {OrganizationId}", organizationId);
+                    }
+                    else
+                    {
+                        logger.LogWarning("No organization ID found in JWT claims");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                    logger.LogError(ex, "Error during JWT validation");
+                }
+            },
+        };
+
+        options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                try
+                {
+                    var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                    var organizationService = context.HttpContext.RequestServices.GetRequiredService<IOrganizationService>();
+
+                    var claims = context.Principal?.Claims?.ToList() ?? new List<Claim>();
+                    logger.LogInformation("JWT validated with claims: {Claims}",
+                        string.Join(", ", claims.Select(c => $"{c.Type}={c.Value}")));
+
                     // Extract organization from JWT
                     var organizationId = context.Principal?.FindFirst("org_id")?.Value
                                       ?? context.Principal?.FindFirst("organization_id")?.Value;
