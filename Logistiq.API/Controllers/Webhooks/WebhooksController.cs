@@ -5,6 +5,10 @@ using Logistiq.Domain.Entities;
 using System.Text.Json;
 using System.Security.Cryptography;
 using System.Text;
+using Logistiq.Application.Organizations.DTOs;
+using Logistiq.Application.Organizations;
+using Logistiq.Persistence.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace Logistiq.API.Controllers;
 
@@ -17,17 +21,20 @@ public class WebhooksController : ControllerBase
     private readonly IRepository<ApplicationUser> _userRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IConfiguration _configuration;
+    private readonly LogistiqDbContext _context; // Direct DB access for webhooks
 
     public WebhooksController(
         ILogger<WebhooksController> logger,
         IRepository<ApplicationUser> userRepository,
         IUnitOfWork unitOfWork,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        LogistiqDbContext context)
     {
         _logger = logger;
         _userRepository = userRepository;
         _unitOfWork = unitOfWork;
         _configuration = configuration;
+        _context = context;
     }
 
     [HttpPost("clerk")]
@@ -42,7 +49,7 @@ public class WebhooksController : ControllerBase
                 body = await reader.ReadToEndAsync();
             }
 
-            _logger.LogInformation("Received Clerk webhook payload length: {Length}", body.Length);
+            _logger.LogInformation("Received Clerk webhook payload: {Body}", body);
 
             if (!await VerifySvixSignature(body))
             {
@@ -50,26 +57,23 @@ public class WebhooksController : ControllerBase
                 return Unauthorized("Invalid signature");
             }
 
-            var webhookData = JsonSerializer.Deserialize<ClerkWebhookEvent>(body, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
+            // Parse as generic JSON first to see the structure
+            using var document = JsonDocument.Parse(body);
+            var root = document.RootElement;
 
-            if (webhookData == null)
-            {
-                _logger.LogError("Failed to parse webhook data");
-                return BadRequest("Invalid webhook data");
-            }
+            var eventType = root.GetProperty("type").GetString();
+            var eventData = root.GetProperty("data");
 
-            _logger.LogInformation("Processing Clerk webhook: {Type} for user {UserId}",
-                webhookData.Type, webhookData.Data?.Id);
+            _logger.LogInformation("Processing Clerk webhook: {Type} with data: {Data}",
+                eventType, eventData.GetRawText());
 
-            // Handle different event types
-            var result = webhookData.Type switch
+            var result = eventType switch
             {
-                "user.created" => await HandleUserCreated(webhookData.Data),
-                "user.updated" => await HandleUserUpdated(webhookData.Data),
-                _ => HandleUnknownEvent(webhookData.Type)
+                "user.created" => await HandleUserCreated(eventData),
+                "user.updated" => await HandleUserUpdated(eventData),
+                "organization.created" => await HandleOrganizationCreated(eventData),
+                "organization.updated" => await HandleOrganizationUpdated(eventData),
+                _ => HandleUnknownEvent(eventType)
             };
 
             if (!result)
@@ -80,20 +84,216 @@ public class WebhooksController : ControllerBase
             return Ok(new
             {
                 message = "Webhook processed successfully",
-                eventType = webhookData.Type,
-                userId = webhookData.Data?.Id,
+                eventType = eventType,
                 timestamp = DateTime.UtcNow
             });
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogError(ex, "JSON parsing error in webhook");
-            return BadRequest(new { error = "Invalid JSON payload" });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error processing Clerk webhook");
             return StatusCode(500, new { error = "Internal server error" });
+        }
+    }
+
+    private async Task<bool> HandleOrganizationCreated(JsonElement orgData)
+    {
+        try
+        {
+            var orgId = orgData.GetProperty("id").GetString();
+            var orgName = orgData.GetProperty("name").GetString();
+            var orgSlug = orgData.TryGetProperty("slug", out var slugProp) ? slugProp.GetString() : null;
+
+            _logger.LogInformation("Creating organization: {OrgId} - {Name} - {Slug}",
+                orgId, orgName, orgSlug);
+
+            // Check if organization already exists
+            var existingOrg = await _context.Organizations
+                .FirstOrDefaultAsync(o => o.ClerkOrganizationId == orgId);
+
+            if (existingOrg != null)
+            {
+                _logger.LogInformation("Organization already exists: {OrgId}", orgId);
+                return true;
+            }
+
+            // Create organization directly in database (bypassing service layer for webhooks)
+            var newOrganization = new Organization
+            {
+                ClerkOrganizationId = orgId!,
+                Name = orgName!,
+                Slug = orgSlug,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.Organizations.Add(newOrganization);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Created organization via webhook: {OrgId} - {Name}", orgId, orgName);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create organization via webhook");
+            return false;
+        }
+    }
+
+    private async Task<bool> HandleOrganizationUpdated(JsonElement orgData)
+    {
+        try
+        {
+            var orgId = orgData.GetProperty("id").GetString();
+            var orgName = orgData.GetProperty("name").GetString();
+            var orgSlug = orgData.TryGetProperty("slug", out var slugProp) ? slugProp.GetString() : null;
+
+            _logger.LogInformation("Updating organization: {OrgId} - {Name}", orgId, orgName);
+
+            var organization = await _context.Organizations
+                .FirstOrDefaultAsync(o => o.ClerkOrganizationId == orgId);
+
+            if (organization == null)
+            {
+                // Organization doesn't exist, create it
+                return await HandleOrganizationCreated(orgData);
+            }
+
+            // Update organization
+            organization.Name = orgName!;
+            organization.Slug = orgSlug ?? organization.Slug;
+            organization.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Updated organization via webhook: {OrgId}", orgId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update organization via webhook");
+            return false;
+        }
+    }
+
+    private async Task<bool> HandleUserCreated(JsonElement userData)
+    {
+        try
+        {
+            var userId = userData.GetProperty("id").GetString();
+            var firstName = userData.TryGetProperty("first_name", out var fnProp) ? fnProp.GetString() : "";
+            var lastName = userData.TryGetProperty("last_name", out var lnProp) ? lnProp.GetString() : "";
+
+            // Check if user already exists
+            var existingUser = await _userRepository.FirstOrDefaultAsync(u => u.ClerkUserId == userId);
+            if (existingUser != null)
+            {
+                _logger.LogInformation("User already exists: {UserId}", userId);
+                return true;
+            }
+
+            // Get email from email_addresses array
+            string? email = null;
+            if (userData.TryGetProperty("email_addresses", out var emailsProp) && emailsProp.ValueKind == JsonValueKind.Array)
+            {
+                var primaryEmailId = userData.TryGetProperty("primary_email_address_id", out var primaryProp)
+                    ? primaryProp.GetString() : null;
+
+                foreach (var emailElement in emailsProp.EnumerateArray())
+                {
+                    var emailId = emailElement.GetProperty("id").GetString();
+                    var emailAddress = emailElement.GetProperty("email_address").GetString();
+
+                    if (emailId == primaryEmailId || email == null)
+                    {
+                        email = emailAddress;
+                        if (emailId == primaryEmailId) break; // Use primary if found
+                    }
+                }
+            }
+
+            if (string.IsNullOrEmpty(email))
+            {
+                _logger.LogError("No email found for user: {UserId}", userId);
+                return true; // Don't fail webhook
+            }
+
+            // Create user
+            var newUser = new ApplicationUser
+            {
+                ClerkUserId = userId!,
+                Email = email,
+                FirstName = firstName ?? "",
+                LastName = lastName ?? "",
+                IsActive = true
+            };
+
+            await _userRepository.AddAsync(newUser);
+            await _unitOfWork.SaveChangesAsync();
+
+            _logger.LogInformation("Created user via webhook: {ClerkUserId} - {Email}", userId, email);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create user via webhook");
+            return false;
+        }
+    }
+
+    private async Task<bool> HandleUserUpdated(JsonElement userData)
+    {
+        try
+        {
+            var userId = userData.GetProperty("id").GetString();
+
+            var user = await _userRepository.FirstOrDefaultAsync(u => u.ClerkUserId == userId);
+            if (user == null)
+            {
+                // User doesn't exist, try to create it
+                _logger.LogInformation("User not found for update, attempting to create: {UserId}", userId);
+                return await HandleUserCreated(userData);
+            }
+
+            // Update user fields
+            if (userData.TryGetProperty("first_name", out var fnProp))
+            {
+                user.FirstName = fnProp.GetString() ?? user.FirstName;
+            }
+
+            if (userData.TryGetProperty("last_name", out var lnProp))
+            {
+                user.LastName = lnProp.GetString() ?? user.LastName;
+            }
+
+            // Update email if available
+            if (userData.TryGetProperty("email_addresses", out var emailsProp) && emailsProp.ValueKind == JsonValueKind.Array)
+            {
+                var primaryEmailId = userData.TryGetProperty("primary_email_address_id", out var primaryProp)
+                    ? primaryProp.GetString() : null;
+
+                foreach (var emailElement in emailsProp.EnumerateArray())
+                {
+                    var emailId = emailElement.GetProperty("id").GetString();
+                    var emailAddress = emailElement.GetProperty("email_address").GetString();
+
+                    if (emailId == primaryEmailId && !string.IsNullOrEmpty(emailAddress))
+                    {
+                        user.Email = emailAddress;
+                        break;
+                    }
+                }
+            }
+
+            await _userRepository.UpdateAsync(user);
+            await _unitOfWork.SaveChangesAsync();
+
+            _logger.LogInformation("Updated user via webhook: {ClerkUserId}", userId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update user via webhook");
+            return false;
         }
     }
 
@@ -173,132 +373,6 @@ public class WebhooksController : ControllerBase
         return Convert.ToBase64String(hash);
     }
 
-    private async Task<bool> HandleUserCreated(ClerkUserData userData)
-    {
-        try
-        {
-            // Check if user already exists
-            var existingUser = await _userRepository.FirstOrDefaultAsync(u => u.ClerkUserId == userData.Id);
-            if (existingUser != null)
-            {
-                _logger.LogInformation("User already exists: {UserId}", userData.Id);
-                return true;
-            }
-
-            // Get email - try multiple approaches
-            string? email = null;
-
-            if (userData.EmailAddresses != null && userData.EmailAddresses.Any())
-            {
-                // Try to get the primary email first
-                var primaryEmail = userData.EmailAddresses
-                    .FirstOrDefault(e => e.Id == userData.PrimaryEmailAddressId);
-
-                if (primaryEmail != null && !string.IsNullOrEmpty(primaryEmail.EmailAddress))
-                {
-                    email = primaryEmail.EmailAddress;
-                }
-                else
-                {
-                    // Fallback to first available email
-                    var firstEmail = userData.EmailAddresses.FirstOrDefault();
-                    if (firstEmail != null && !string.IsNullOrEmpty(firstEmail.EmailAddress))
-                    {
-                        email = firstEmail.EmailAddress;
-                    }
-                }
-            }
-
-            if (string.IsNullOrEmpty(email))
-            {
-                _logger.LogError("No email found for user: {UserId}. EmailAddresses: {EmailAddresses}",
-                    userData.Id,
-                    userData.EmailAddresses?.Count ?? 0);
-
-                // Don't fail the webhook, but log the issue
-                // The user can still be created when they sync via the API
-                return true;
-            }
-
-            // Create user
-            var newUser = new ApplicationUser
-            {
-                ClerkUserId = userData.Id,
-                Email = email,
-                FirstName = userData.FirstName ?? "",
-                LastName = userData.LastName ?? "",
-                IsActive = true
-            };
-
-            await _userRepository.AddAsync(newUser);
-            await _unitOfWork.SaveChangesAsync();
-
-            _logger.LogInformation("Created user via webhook: {ClerkUserId} - {Email}", userData.Id, email);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to create user via webhook: {UserId}", userData.Id);
-            return false;
-        }
-    }
-
-    private async Task<bool> HandleUserUpdated(ClerkUserData userData)
-    {
-        try
-        {
-            var user = await _userRepository.FirstOrDefaultAsync(u => u.ClerkUserId == userData.Id);
-            if (user == null)
-            {
-                // User doesn't exist, try to create it
-                _logger.LogInformation("User not found for update, attempting to create: {UserId}", userData.Id);
-                return await HandleUserCreated(userData);
-            }
-
-            // Get email - same logic as creation
-            string? email = null;
-
-            if (userData.EmailAddresses != null && userData.EmailAddresses.Any())
-            {
-                var primaryEmail = userData.EmailAddresses
-                    .FirstOrDefault(e => e.Id == userData.PrimaryEmailAddressId);
-
-                if (primaryEmail != null && !string.IsNullOrEmpty(primaryEmail.EmailAddress))
-                {
-                    email = primaryEmail.EmailAddress;
-                }
-                else
-                {
-                    var firstEmail = userData.EmailAddresses.FirstOrDefault();
-                    if (firstEmail != null && !string.IsNullOrEmpty(firstEmail.EmailAddress))
-                    {
-                        email = firstEmail.EmailAddress;
-                    }
-                }
-            }
-
-            // Update user info - only update email if we found one
-            if (!string.IsNullOrEmpty(email))
-            {
-                user.Email = email;
-            }
-
-            user.FirstName = userData.FirstName ?? user.FirstName;
-            user.LastName = userData.LastName ?? user.LastName;
-
-            await _userRepository.UpdateAsync(user);
-            await _unitOfWork.SaveChangesAsync();
-
-            _logger.LogInformation("Updated user via webhook: {ClerkUserId}", userData.Id);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to update user via webhook: {UserId}", userData.Id);
-            return false;
-        }
-    }
-
     private bool HandleUnknownEvent(string eventType)
     {
         _logger.LogInformation("Received unhandled webhook event type: {EventType}", eventType);
@@ -322,7 +396,18 @@ public class ClerkWebhookEvent
 {
     public string Type { get; set; } = string.Empty;
     public ClerkUserData? Data { get; set; }
-    public object? Object { get; set; } 
+    public ClerkOrganizationData? OrgData { get; set; }
+    public object? Object { get; set; }
+}
+
+public class ClerkOrganizationData
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Slug { get; set; }
+    public long CreatedAt { get; set; }
+    public long UpdatedAt { get; set; }
+    public string? ImageUrl { get; set; }
 }
 
 public class ClerkUserData

@@ -4,6 +4,7 @@ using Logistiq.Application.Organizations;
 using Logistiq.Application.Organizations.DTOs;
 using Logistiq.Domain.Entities;
 using Logistiq.Persistence.Data;
+using Microsoft.Extensions.Logging;
 
 namespace Logistiq.Infrastructure.Services;
 
@@ -11,18 +12,38 @@ public class OrganizationService : IOrganizationService
 {
     private readonly LogistiqDbContext _context;
     private readonly ICurrentUserService _currentUser;
+    private readonly ILogger<OrganizationService> _logger;
 
-    public OrganizationService(LogistiqDbContext context, ICurrentUserService currentUser)
+    public OrganizationService(LogistiqDbContext context, ICurrentUserService currentUser, ILogger<OrganizationService> logger)
     {
         _context = context;
         _currentUser = currentUser;
+        _logger = logger;
     }
 
     public async Task<OrganizationResponse> SyncOrganizationAsync(SyncOrganizationRequest request)
     {
         var clerkOrgId = _currentUser.OrganizationId;
+
+        // If no organization context, try to find organization by name (for immediate post-creation sync)
         if (string.IsNullOrEmpty(clerkOrgId))
-            throw new UnauthorizedAccessException("No organization context found");
+        {
+            _logger.LogWarning("No organization context found, attempting to find by name: {Name}", request.Name);
+
+            // Try to find the most recently created organization with this name
+            var recentOrg = await _context.Organizations
+                .Where(o => o.Name == request.Name)
+                .OrderByDescending(o => o.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (recentOrg != null)
+            {
+                _logger.LogInformation("Found organization by name: {OrgId} - {Name}", recentOrg.ClerkOrganizationId, recentOrg.Name);
+                return MapToResponse(recentOrg);
+            }
+
+            throw new UnauthorizedAccessException("No organization context found and unable to locate organization by name");
+        }
 
         var existingOrg = await _context.Organizations
             .FirstOrDefaultAsync(o => o.ClerkOrganizationId == clerkOrgId);
@@ -46,6 +67,7 @@ public class OrganizationService : IOrganizationService
             };
 
             _context.Organizations.Add(existingOrg);
+            _logger.LogInformation("Creating new organization: {OrgId} - {Name}", clerkOrgId, request.Name);
         }
         else
         {
@@ -59,6 +81,8 @@ public class OrganizationService : IOrganizationService
             existingOrg.Phone = request.Phone ?? existingOrg.Phone;
             existingOrg.Email = request.Email ?? existingOrg.Email;
             existingOrg.Website = request.Website ?? existingOrg.Website;
+
+            _logger.LogInformation("Updating existing organization: {OrgId} - {Name}", clerkOrgId, request.Name);
         }
 
         await _context.SaveChangesAsync();
