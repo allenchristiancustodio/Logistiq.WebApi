@@ -71,6 +71,12 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
 builder.Services.AddScoped<IStripeService, StripeService>();
 
+// STEP 3: Register SubscriptionService (NO dependency on IStripeService anymore)
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+
+// STEP 4: Register PlanManagementService (depends on both IStripeService and ISubscriptionService)
+builder.Services.AddScoped<IPlanManagementService, PlanManagementService>();
+
 // JWT Authentication for Clerk
 builder.Services.AddAuthentication("Bearer")
     .AddJwtBearer("Bearer", options =>

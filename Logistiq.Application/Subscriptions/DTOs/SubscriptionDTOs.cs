@@ -1,4 +1,5 @@
-﻿using Logistiq.Domain.Enums;
+﻿// Logistiq.Application/Subscriptions/DTOs/SubscriptionDTOs.cs - Updated with PriceId
+using Logistiq.Domain.Enums;
 
 namespace Logistiq.Application.Subscriptions.DTOs;
 
@@ -54,9 +55,11 @@ public class CreatePaidSubscriptionRequest
     public DateTime? TrialEndDate { get; set; }
 }
 
+// Updated to include PriceId
 public class UpdateSubscriptionRequest
 {
     public string? PlanName { get; set; }
+    public string? PriceId { get; set; } // Added for Stripe price changes
     public decimal? MonthlyPrice { get; set; }
     public SubscriptionStatus? Status { get; set; }
     public DateTime? EndDate { get; set; }
@@ -67,6 +70,8 @@ public class UpdateSubscriptionRequest
     public bool? HasAdvancedReporting { get; set; }
     public bool? HasReporting { get; set; }
     public bool? HasInvoicing { get; set; }
+    public bool? ProrationBehavior { get; set; } = true; // For Stripe proration
+    public Dictionary<string, string>? Metadata { get; set; } // For Stripe metadata
 }
 
 public class CancelSubscriptionRequest
@@ -124,6 +129,23 @@ public class UsageMetric
     public double PercentageUsed => Limit > 0 ? (double)Current / Limit * 100 : 0;
     public bool IsAtLimit => Current >= Limit;
     public bool IsNearLimit => PercentageUsed >= 80;
+}
+
+// New DTO for Stripe-specific subscription updates
+public class UpdateStripeSubscriptionRequest
+{
+    public string? PriceId { get; set; }
+    public bool? ProrationBehavior { get; set; } = true;
+    public Dictionary<string, string>? Metadata { get; set; }
+}
+
+// New DTO for plan changes that affect both local DB and Stripe
+public class ChangePlanRequest
+{
+    public string NewPlanId { get; set; } = string.Empty;
+    public string StripePriceId { get; set; } = string.Empty;
+    public bool IsAnnual { get; set; } = false;
+    public bool ProrateBilling { get; set; } = true;
 }
 
 public enum SubscriptionLimitType

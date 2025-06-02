@@ -14,4 +14,6 @@ public interface IStripeService
     Task<StripeSubscriptionResponse?> GetSubscriptionAsync(string subscriptionId);
     Task<StripeSubscriptionResponse> CancelSubscriptionAsync(string subscriptionId, bool immediately = false);
     Task<StripeSubscriptionResponse> UpdateSubscriptionAsync(string subscriptionId, UpdateSubscriptionRequest request);
+    Task<StripeSubscriptionResponse> ChangePlanAsync(string subscriptionId, ChangePlanRequest request);
+
 }

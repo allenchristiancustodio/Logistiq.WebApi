@@ -6,6 +6,7 @@ using Logistiq.Application.Subscriptions.DTOs;
 using Logistiq.Domain.Entities;
 using Logistiq.Domain.Enums;
 using Logistiq.Persistence.Data;
+using Logistiq.Application.Payments;
 
 namespace Logistiq.Infrastructure.Services;
 
@@ -14,15 +15,18 @@ public class SubscriptionService : ISubscriptionService
     private readonly LogistiqDbContext _context;
     private readonly ICurrentUserService _currentUser;
     private readonly ILogger<SubscriptionService> _logger;
+    private readonly IStripeService _stripeService;
 
     public SubscriptionService(
         LogistiqDbContext context,
         ICurrentUserService currentUser,
-        ILogger<SubscriptionService> logger)
+        ILogger<SubscriptionService> logger,
+        IStripeService stripeService)
     {
         _context = context;
         _currentUser = currentUser;
         _logger = logger;
+        _stripeService = stripeService;
     }
 
     public async Task<SubscriptionResponse?> GetCurrentSubscriptionAsync()
@@ -357,7 +361,6 @@ public class SubscriptionService : ISubscriptionService
             }
         };
     }
-
     private void SetPlanLimits(Subscription subscription, string planName)
     {
         switch (planName.ToLower())

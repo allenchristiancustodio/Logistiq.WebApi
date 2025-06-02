@@ -90,7 +90,8 @@ public class StripeSubscriptionResponse
     public Dictionary<string, string>? Metadata { get; set; }
 }
 
-public class UpdateSubscriptionRequest
+// RENAMED: This was causing the conflict
+public class StripeUpdateSubscriptionRequest
 {
     public string? PriceId { get; set; }
     public bool? ProrationBehavior { get; set; } = true;

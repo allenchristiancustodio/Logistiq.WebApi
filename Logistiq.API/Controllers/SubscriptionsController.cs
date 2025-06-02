@@ -1,4 +1,4 @@
-﻿// Logistiq.API/Controllers/SubscriptionsController.cs
+﻿// Logistiq.API/Controllers/SubscriptionsController.cs - Updated to use PlanManagementService
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Logistiq.Application.Subscriptions;
@@ -12,10 +12,14 @@ namespace Logistiq.API.Controllers;
 public class SubscriptionsController : ControllerBase
 {
     private readonly ISubscriptionService _subscriptionService;
+    private readonly IPlanManagementService _planManagementService;
 
-    public SubscriptionsController(ISubscriptionService subscriptionService)
+    public SubscriptionsController(
+        ISubscriptionService subscriptionService,
+        IPlanManagementService planManagementService)
     {
         _subscriptionService = subscriptionService;
+        _planManagementService = planManagementService;
     }
 
     [HttpGet("current")]
@@ -189,10 +193,98 @@ public class SubscriptionsController : ControllerBase
             return BadRequest(new { error = ex.Message });
         }
     }
+
+    // Plan Management Endpoints (using IPlanManagementService)
+    [HttpPost("change-plan")]
+    public async Task<ActionResult<SubscriptionResponse>> ChangePlan([FromBody] ChangePlanRequest request)
+    {
+        try
+        {
+            var subscription = await _planManagementService.ChangePlanAsync(request);
+            return Ok(subscription);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound("Subscription not found");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("upgrade-to-pro")]
+    public async Task<ActionResult<SubscriptionResponse>> UpgradeToPro([FromBody] UpgradeToProRequest request)
+    {
+        try
+        {
+            var subscription = await _planManagementService.UpgradeToProAsync(request.IsAnnual);
+            return Ok(subscription);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("downgrade-to-starter")]
+    public async Task<ActionResult<SubscriptionResponse>> DowngradeToStarter()
+    {
+        try
+        {
+            var subscription = await _planManagementService.DowngradeToStarterAsync();
+            return Ok(subscription);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("can-change-to/{planId}")]
+    public async Task<ActionResult<bool>> CanChangeToPlan(string planId)
+    {
+        try
+        {
+            var canChange = await _planManagementService.CanChangeToPlanAsync(planId);
+            return Ok(new { canChange, planId });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("upgrade-recommendations")]
+    public async Task<ActionResult<List<string>>> GetUpgradeRecommendations()
+    {
+        try
+        {
+            var recommendations = await _planManagementService.GetUpgradeRecommendationsAsync();
+            return Ok(recommendations);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 }
 
 public class CheckLimitRequest
 {
     public SubscriptionLimitType LimitType { get; set; }
     public int CurrentCount { get; set; }
+}
+
+public class UpgradeToProRequest
+{
+    public bool IsAnnual { get; set; } = false;
 }

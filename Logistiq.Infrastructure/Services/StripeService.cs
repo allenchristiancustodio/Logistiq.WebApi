@@ -1,4 +1,4 @@
-﻿// Logistiq.Infrastructure/Services/StripeService.cs
+﻿// Logistiq.Infrastructure/Services/StripeService.cs - Fixed without circular dependency
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Stripe;
@@ -6,8 +6,9 @@ using Stripe.Checkout;
 using Stripe.BillingPortal;
 using Logistiq.Application.Payments;
 using Logistiq.Application.Payments.DTOs;
-using Logistiq.Application.Subscriptions;
-using Logistiq.Domain.Entities;
+using Logistiq.Application.Subscriptions.DTOs;
+using Logistiq.Persistence.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace Logistiq.Infrastructure.Services;
 
@@ -15,18 +16,18 @@ public class StripeService : IStripeService
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<StripeService> _logger;
-    private readonly ISubscriptionService _subscriptionService;
+    private readonly LogistiqDbContext _context; // Use DbContext directly instead of ISubscriptionService
     private readonly string _secretKey;
     private readonly string _webhookSecret;
 
     public StripeService(
         IConfiguration configuration,
         ILogger<StripeService> logger,
-        ISubscriptionService subscriptionService)
+        LogistiqDbContext context) // Remove ISubscriptionService dependency
     {
         _configuration = configuration;
         _logger = logger;
-        _subscriptionService = subscriptionService;
+        _context = context;
         _secretKey = _configuration["Stripe:SecretKey"] ?? throw new ArgumentNullException("Stripe:SecretKey");
         _webhookSecret = _configuration["Stripe:WebhookSecret"] ?? throw new ArgumentNullException("Stripe:WebhookSecret");
 
@@ -40,7 +41,7 @@ public class StripeService : IStripeService
             // Create or get customer
             var customer = await GetOrCreateCustomerAsync(request.CustomerEmail, request.CustomerName, request.OrganizationId, request.OrganizationName);
 
-            var options = new SessionCreateOptions
+            var options = new Stripe.Checkout.SessionCreateOptions
             {
                 Customer = customer.Id,
                 PaymentMethodTypes = new List<string> { "card" },
@@ -79,7 +80,7 @@ public class StripeService : IStripeService
                 }
             };
 
-            var service = new SessionService();
+            var service = new Stripe.Checkout.SessionService();
             var session = await service.CreateAsync(options);
 
             _logger.LogInformation("Created Stripe checkout session {SessionId} for organization {OrganizationId}",
@@ -248,7 +249,6 @@ public class StripeService : IStripeService
         try
         {
             var priceService = new PriceService();
-            var productService = new ProductService();
 
             var prices = await priceService.ListAsync(new PriceListOptions
             {
@@ -273,7 +273,7 @@ public class StripeService : IStripeService
                         UnitAmount = price.UnitAmount ?? 0,
                         Currency = price.Currency,
                         Interval = price.Recurring?.Interval ?? "",
-                        IntervalCount = price.Recurring?.IntervalCount ?? 1,
+                        IntervalCount = (int)(price.Recurring?.IntervalCount ?? 1),
                         IsActive = price.Active,
                         Metadata = price.Metadata
                     });
@@ -293,7 +293,7 @@ public class StripeService : IStripeService
     {
         try
         {
-            var service = new SubscriptionService();
+            var service = new Stripe.SubscriptionService();
             var subscription = await service.GetAsync(subscriptionId, new SubscriptionGetOptions
             {
                 Expand = new List<string> { "latest_invoice", "customer" }
@@ -316,7 +316,7 @@ public class StripeService : IStripeService
     {
         try
         {
-            var service = new SubscriptionService();
+            var service = new Stripe.SubscriptionService();
 
             if (immediately)
             {
@@ -343,9 +343,10 @@ public class StripeService : IStripeService
     {
         try
         {
-            var service = new SubscriptionService();
+            var service = new Stripe.SubscriptionService();
             var options = new SubscriptionUpdateOptions();
 
+            // Check if we need to update the price
             if (!string.IsNullOrEmpty(request.PriceId))
             {
                 // Get current subscription to update the price
@@ -364,23 +365,80 @@ public class StripeService : IStripeService
                     };
                 }
 
+                // Set proration behavior
                 if (request.ProrationBehavior == true)
                 {
                     options.ProrationBehavior = "create_prorations";
                 }
+                else
+                {
+                    options.ProrationBehavior = "none";
+                }
             }
 
+            // Update metadata if provided
             if (request.Metadata != null)
             {
                 options.Metadata = request.Metadata;
             }
 
             var subscription = await service.UpdateAsync(subscriptionId, options);
+
+            _logger.LogInformation("Updated Stripe subscription {SubscriptionId}", subscriptionId);
+
             return MapToSubscriptionResponse(subscription);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to update Stripe subscription {SubscriptionId}", subscriptionId);
+            throw;
+        }
+    }
+
+    public async Task<StripeSubscriptionResponse> ChangePlanAsync(string subscriptionId, ChangePlanRequest request)
+    {
+        try
+        {
+            var service = new Stripe.SubscriptionService();
+
+            // Get current subscription
+            var currentSub = await service.GetAsync(subscriptionId);
+            var currentItem = currentSub.Items.Data.FirstOrDefault();
+
+            if (currentItem == null)
+            {
+                throw new InvalidOperationException("No subscription items found");
+            }
+
+            var options = new SubscriptionUpdateOptions
+            {
+                Items = new List<SubscriptionItemOptions>
+                {
+                    new()
+                    {
+                        Id = currentItem.Id,
+                        Price = request.StripePriceId
+                    }
+                },
+                ProrationBehavior = request.ProrateBilling ? "create_prorations" : "none",
+                Metadata = new Dictionary<string, string>
+                {
+                    {"plan_id", request.NewPlanId},
+                    {"is_annual", request.IsAnnual.ToString()},
+                    {"changed_at", DateTime.UtcNow.ToString("O")}
+                }
+            };
+
+            var subscription = await service.UpdateAsync(subscriptionId, options);
+
+            _logger.LogInformation("Changed plan for subscription {SubscriptionId} to {NewPlan}",
+                subscriptionId, request.NewPlanId);
+
+            return MapToSubscriptionResponse(subscription);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to change plan for subscription {SubscriptionId}", subscriptionId);
             throw;
         }
     }
@@ -421,13 +479,14 @@ public class StripeService : IStripeService
         return await customerService.CreateAsync(options);
     }
 
+    // Webhook handlers - Use DbContext directly instead of ISubscriptionService
     private async Task HandleCheckoutSessionCompleted(Event stripeEvent)
     {
-        var session = stripeEvent.Data.Object as Session;
+        var session = stripeEvent.Data.Object as Stripe.Checkout.Session;
+
         if (session?.Mode == "subscription" && session.SubscriptionId != null)
         {
             _logger.LogInformation("Checkout session completed for subscription {SubscriptionId}", session.SubscriptionId);
-            // The subscription webhook will handle the actual subscription creation
         }
     }
 
@@ -441,18 +500,25 @@ public class StripeService : IStripeService
 
             if (!string.IsNullOrEmpty(priceId))
             {
-                await _subscriptionService.CreatePaidSubscriptionAsync(new Application.Subscriptions.DTOs.CreatePaidSubscriptionRequest
-                {
-                    PlanName = GetPlanNameFromPriceId(priceId),
-                    StripeCustomerId = subscription.CustomerId,
-                    StripeSubscriptionId = subscription.Id,
-                    StripePriceId = priceId,
-                    MonthlyPrice = (subscription.Items.Data.FirstOrDefault()?.Price.UnitAmount ?? 0) / 100m,
-                    TrialEndDate = subscription.TrialEnd?.DateTime
-                });
+                // Update subscription directly in database
+                var dbSubscription = await _context.Subscriptions
+                    .FirstOrDefaultAsync(s => s.ClerkOrganizationId == organizationId);
 
-                _logger.LogInformation("Created subscription for organization {OrganizationId} with Stripe subscription {SubscriptionId}",
-                    organizationId, subscription.Id);
+                if (dbSubscription != null)
+                {
+                    dbSubscription.StripeCustomerId = subscription.CustomerId;
+                    dbSubscription.StripeSubscriptionId = subscription.Id;
+                    dbSubscription.StripePriceId = priceId;
+                    dbSubscription.PlanName = GetPlanNameFromPriceId(priceId);
+                    dbSubscription.MonthlyPrice = (subscription.Items.Data.FirstOrDefault()?.Price.UnitAmount ?? 0) / 100m;
+                    dbSubscription.Status = Domain.Enums.SubscriptionStatus.Active;
+                    dbSubscription.TrialEndDate = subscription.TrialEnd;
+
+                    await _context.SaveChangesAsync();
+
+                    _logger.LogInformation("Updated subscription for organization {OrganizationId} with Stripe subscription {SubscriptionId}",
+                        organizationId, subscription.Id);
+                }
             }
         }
     }
@@ -462,9 +528,29 @@ public class StripeService : IStripeService
         var subscription = stripeEvent.Data.Object as Subscription;
         if (subscription?.Metadata?.ContainsKey("organization_id") == true)
         {
-            // Handle subscription changes like plan upgrades, cancellations, etc.
-            _logger.LogInformation("Subscription updated: {SubscriptionId}, Status: {Status}",
-                subscription.Id, subscription.Status);
+            var organizationId = subscription.Metadata["organization_id"];
+
+            var dbSubscription = await _context.Subscriptions
+                .FirstOrDefaultAsync(s => s.ClerkOrganizationId == organizationId);
+
+            if (dbSubscription != null)
+            {
+                // Update subscription status and other relevant fields
+                dbSubscription.Status = subscription.Status switch
+                {
+                    "active" => Domain.Enums.SubscriptionStatus.Active,
+                    "past_due" => Domain.Enums.SubscriptionStatus.PastDue,
+                    "canceled" => Domain.Enums.SubscriptionStatus.Cancelled,
+                    _ => dbSubscription.Status
+                };
+
+                dbSubscription.EndDate = subscription.CurrentPeriodEnd;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Updated subscription status for organization {OrganizationId}: {Status}",
+                    organizationId, subscription.Status);
+            }
         }
     }
 
@@ -473,6 +559,17 @@ public class StripeService : IStripeService
         var subscription = stripeEvent.Data.Object as Subscription;
         if (subscription?.Metadata?.ContainsKey("organization_id") == true)
         {
+            var organizationId = subscription.Metadata["organization_id"];
+
+            var dbSubscription = await _context.Subscriptions
+                .FirstOrDefaultAsync(s => s.ClerkOrganizationId == organizationId);
+
+            if (dbSubscription != null)
+            {
+                dbSubscription.Status = Domain.Enums.SubscriptionStatus.Cancelled;
+                await _context.SaveChangesAsync();
+            }
+
             _logger.LogInformation("Subscription deleted: {SubscriptionId}", subscription.Id);
         }
     }
@@ -519,7 +616,6 @@ public class StripeService : IStripeService
 
     private static string GetPlanNameFromPriceId(string priceId)
     {
-        // Map your Stripe price IDs to plan names
         return priceId switch
         {
             var id when id.Contains("starter") => "Starter",
