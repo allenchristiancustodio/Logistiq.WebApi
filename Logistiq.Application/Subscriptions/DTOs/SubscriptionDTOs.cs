@@ -1,0 +1,135 @@
+﻿using Logistiq.Domain.Enums;
+
+namespace Logistiq.Application.Subscriptions.DTOs;
+
+public class SubscriptionResponse
+{
+    public Guid Id { get; set; }
+    public string ClerkOrganizationId { get; set; } = string.Empty;
+    public string? StripeCustomerId { get; set; }
+    public string? StripeSubscriptionId { get; set; }
+    public string? StripePriceId { get; set; }
+    public string PlanName { get; set; } = string.Empty;
+    public decimal MonthlyPrice { get; set; }
+    public SubscriptionStatus Status { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+    public DateTime? TrialEndDate { get; set; }
+    public bool IsTrialActive { get; set; }
+    public int DaysRemaining { get; set; }
+    public bool IsExpired { get; set; }
+
+    // Plan Limits
+    public int MaxUsers { get; set; }
+    public int MaxProducts { get; set; }
+    public int MaxOrders { get; set; }
+    public int MaxWarehouses { get; set; }
+    public bool HasAdvancedReporting { get; set; }
+    public bool HasReporting { get; set; }
+    public bool HasInvoicing { get; set; }
+
+    // Usage Tracking
+    public int CurrentUsers { get; set; }
+    public int CurrentProducts { get; set; }
+    public int CurrentOrders { get; set; }
+    public int CurrentWarehouses { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+}
+
+public class CreateTrialSubscriptionRequest
+{
+    public string PlanName { get; set; } = "Trial";
+    public int TrialDays { get; set; } = 14;
+}
+
+public class CreatePaidSubscriptionRequest
+{
+    public string PlanName { get; set; } = string.Empty;
+    public string StripeCustomerId { get; set; } = string.Empty;
+    public string StripeSubscriptionId { get; set; } = string.Empty;
+    public string StripePriceId { get; set; } = string.Empty;
+    public decimal MonthlyPrice { get; set; }
+    public DateTime? TrialEndDate { get; set; }
+}
+
+public class UpdateSubscriptionRequest
+{
+    public string? PlanName { get; set; }
+    public decimal? MonthlyPrice { get; set; }
+    public SubscriptionStatus? Status { get; set; }
+    public DateTime? EndDate { get; set; }
+    public int? MaxUsers { get; set; }
+    public int? MaxProducts { get; set; }
+    public int? MaxOrders { get; set; }
+    public int? MaxWarehouses { get; set; }
+    public bool? HasAdvancedReporting { get; set; }
+    public bool? HasReporting { get; set; }
+    public bool? HasInvoicing { get; set; }
+}
+
+public class CancelSubscriptionRequest
+{
+    public string? CancellationReason { get; set; }
+    public bool CancelImmediately { get; set; } = false;
+}
+
+public class SubscriptionPlanResponse
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public decimal MonthlyPrice { get; set; }
+    public decimal AnnualPrice { get; set; }
+    public bool IsPopular { get; set; }
+    public List<string> Features { get; set; } = new();
+    public int MaxUsers { get; set; }
+    public int MaxProducts { get; set; }
+    public int MaxOrders { get; set; }
+    public int MaxWarehouses { get; set; }
+    public bool HasAdvancedReporting { get; set; }
+    public bool HasReporting { get; set; }
+    public bool HasInvoicing { get; set; }
+    public string StripePriceIdMonthly { get; set; } = string.Empty;
+    public string StripePriceIdAnnual { get; set; } = string.Empty;
+}
+
+public class SubscriptionLimitsResponse
+{
+    public int MaxUsers { get; set; }
+    public int MaxProducts { get; set; }
+    public int MaxOrders { get; set; }
+    public int MaxWarehouses { get; set; }
+    public bool HasAdvancedReporting { get; set; }
+    public bool HasReporting { get; set; }
+    public bool HasInvoicing { get; set; }
+}
+
+public class SubscriptionUsageResponse
+{
+    public int CurrentUsers { get; set; }
+    public int CurrentProducts { get; set; }
+    public int CurrentOrders { get; set; }
+    public int CurrentWarehouses { get; set; }
+    public SubscriptionLimitsResponse Limits { get; set; } = new();
+
+    public Dictionary<string, UsageMetric> UsageMetrics { get; set; } = new();
+}
+
+public class UsageMetric
+{
+    public int Current { get; set; }
+    public int Limit { get; set; }
+    public double PercentageUsed => Limit > 0 ? (double)Current / Limit * 100 : 0;
+    public bool IsAtLimit => Current >= Limit;
+    public bool IsNearLimit => PercentageUsed >= 80;
+}
+
+public enum SubscriptionLimitType
+{
+    Users,
+    Products,
+    Orders,
+    Warehouses
+}

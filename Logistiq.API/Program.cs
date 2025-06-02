@@ -16,6 +16,9 @@ using Logistiq.Application.Organizations;
 using Logistiq.Application.Products;
 using Logistiq.Application.Products.Validation;
 using Logistiq.Application.Categories;
+using Logistiq.Application.Subscriptions;
+using Logistiq.Application.Payments;
+using Logistiq.Infrastructure.Settings;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,6 +48,7 @@ builder.Services.AddScoped(typeof(IOrganizationRepository<,>), typeof(Organizati
 builder.Services.AddScoped<IRepository<ApplicationUser>, Repository<ApplicationUser>>();
 builder.Services.AddScoped<IRepository<Organization>, Repository<Organization>>();
 builder.Services.AddScoped<IRepository<Subscription>, Repository<Subscription>>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 // Organization-specific repositories
 builder.Services.AddScoped<IOrganizationRepository<Product>, OrganizationRepository<Product>>();
@@ -62,6 +66,10 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IOrganizationService, OrganizationService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
+
+// Stripe Configuration
+builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
+builder.Services.AddScoped<IStripeService, StripeService>();
 
 // JWT Authentication for Clerk
 builder.Services.AddAuthentication("Bearer")
@@ -212,6 +220,8 @@ app.UseCors("AllowVite");
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseMiddleware<SubscriptionLimitMiddleware>();
 
 app.MapControllers();
 
