@@ -4,23 +4,31 @@ using Logistiq.Application.Products.DTOs;
 using Logistiq.Domain.Entities;
 using Logistiq.Domain.Enums;
 using Logistiq.Persistence.Data;
+using Logistiq.Application.Common.Interfaces;
 
 namespace Logistiq.Infrastructure.Services;
 
 public class ProductService : IProductService
 {
     private readonly LogistiqDbContext _context;
+    private readonly ICurrentUserService _currentUserService;
 
-    public ProductService(LogistiqDbContext context)
+    public ProductService(LogistiqDbContext context , ICurrentUserService currentUserService)
     {
         _context = context;
+        _currentUserService = currentUserService;
     }
 
     public async Task<PagedProductResponse> GetProductsAsync(ProductSearchRequest request)
     {
+        var oganizationId = await _currentUserService.GetCurrentOrganizationIdAsync();
+
         var query = _context.Products
             .Include(p => p.Category)
-            .AsQueryable();
+            .AsQueryable()
+            .Where(p => p.ClerkOrganizationId == oganizationId);
+
+
 
         // Apply search filters
         if (!string.IsNullOrEmpty(request.SearchTerm))
@@ -75,6 +83,7 @@ public class ProductService : IProductService
 
         return product == null ? null : MapToResponse(product);
     }
+
 
     public async Task<ProductResponse> CreateProductAsync(CreateProductRequest request)
     {

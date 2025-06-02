@@ -15,6 +15,7 @@ using Logistiq.Application.Users;
 using Logistiq.Application.Organizations;
 using Logistiq.Application.Products;
 using Logistiq.Application.Products.Validation;
+using Logistiq.Application.Categories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -60,6 +61,7 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IOrganizationService, OrganizationService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
 
 // JWT Authentication for Clerk
 builder.Services.AddAuthentication("Bearer")
