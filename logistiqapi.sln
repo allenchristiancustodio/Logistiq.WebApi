@@ -13,15 +13,15 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Infrastructure", "Infrastru
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Presentation", "Presentation", "{525E2319-206C-4F4F-A113-5DBC6CFBF8CD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Logistiq.Domain", "Logistiq.Domain\Logistiq.Domain.csproj", "{B31B166B-8755-4002-8D56-681C27E58840}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Logistiq.Domain", "Logistiq.Domain\Logistiq.Domain.csproj", "{B31B166B-8755-4002-8D56-681C27E58840}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Logistiq.Application", "Logistiq.Application\Logistiq.Application.csproj", "{29683788-FFB4-46ED-AB5B-75BB1236115B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Logistiq.Application", "Logistiq.Application\Logistiq.Application.csproj", "{29683788-FFB4-46ED-AB5B-75BB1236115B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Logistiq.Infrastructure", "Logistiq.Infrastructure\Logistiq.Infrastructure.csproj", "{B8B1F1A6-4E7B-4034-9A8C-5AC72B4543F5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Logistiq.Infrastructure", "Logistiq.Infrastructure\Logistiq.Infrastructure.csproj", "{B8B1F1A6-4E7B-4034-9A8C-5AC72B4543F5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Logistiq.Persistence", "Logistiq.Persistence\Logistiq.Persistence.csproj", "{DAF6AC8E-CD42-4190-A768-1EACE4F81AD3}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Logistiq.Persistence", "Logistiq.Persistence\Logistiq.Persistence.csproj", "{DAF6AC8E-CD42-4190-A768-1EACE4F81AD3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Logistiq.API", "Logistiq.API\Logistiq.API.csproj", "{1BAAEC5B-F116-4D59-8702-0F28FE684239}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Logistiq.API", "Logistiq.API\Logistiq.API.csproj", "{1BAAEC5B-F116-4D59-8702-0F28FE684239}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

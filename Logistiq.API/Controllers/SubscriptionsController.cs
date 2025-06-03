@@ -1,5 +1,4 @@
-﻿// Logistiq.API/Controllers/SubscriptionsController.cs - Updated to use PlanManagementService
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Logistiq.Application.Subscriptions;
 using Logistiq.Application.Subscriptions.DTOs;

@@ -25,9 +25,13 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 
-// Database
+// Database For SQL :
+//builder.Services.AddDbContext<LogistiqDbContext>(options =>
+//    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// For PostgresSQL
 builder.Services.AddDbContext<LogistiqDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<CreateProductValidator>();
@@ -57,7 +61,7 @@ builder.Services.AddScoped<IOrganizationRepository<Order>, OrganizationRepositor
 builder.Services.AddScoped<IOrganizationRepository<Customer>, OrganizationRepository<Customer>>();
 builder.Services.AddScoped<IOrganizationRepository<Supplier>, OrganizationRepository<Supplier>>();
 
-// Complete Service Registration
+// Complete Service Registration For Current user
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
@@ -66,16 +70,12 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IOrganizationService, OrganizationService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<IPlanManagementService, PlanManagementService>();
 
 // Stripe Configuration
 builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
 builder.Services.AddScoped<IStripeService, StripeService>();
-
-// STEP 3: Register SubscriptionService (NO dependency on IStripeService anymore)
-builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
-
-// STEP 4: Register PlanManagementService (depends on both IStripeService and ISubscriptionService)
-builder.Services.AddScoped<IPlanManagementService, PlanManagementService>();
 
 // JWT Authentication for Clerk
 builder.Services.AddAuthentication("Bearer")
@@ -117,7 +117,6 @@ builder.Services.AddAuthentication("Bearer")
 
                         var organizationService = context.HttpContext.RequestServices.GetRequiredService<IOrganizationService>();
 
-                        // Get organization name - try org_name claim first, fallback to org_slug
                         var orgName = context.Principal?.FindFirst("org_name")?.Value
                                    ?? context.Principal?.FindFirst("org_slug")?.Value
                                    ?? "Unknown Organization";
@@ -138,7 +137,6 @@ builder.Services.AddAuthentication("Bearer")
                 {
                     var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
                     logger.LogError(ex, "Error during JWT validation");
-                    // Don't throw - let the request continue
                 }
             },
         };
@@ -147,14 +145,14 @@ builder.Services.AddAuthentication("Bearer")
 
 builder.Services.AddAuthorization();
 
-// CORS - Configure for Vite frontend
+// CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowVite", policy =>
     {
         if (builder.Environment.IsDevelopment())
         {
-            policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
+            policy.WithOrigins("http://localhost:3000", "https://localhost:3000", "https://logistiq-web-app-five.vercel.app")
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials()
@@ -162,7 +160,7 @@ builder.Services.AddCors(options =>
         }
         else
         {
-            policy.WithOrigins("https://yourdomain.com")
+            policy.WithOrigins("https://logistiq-web-app-five.vercel.app")
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
