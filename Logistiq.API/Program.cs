@@ -25,13 +25,13 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 
-// Database For SQL :
-//builder.Services.AddDbContext<LogistiqDbContext>(options =>
-//    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+//Database For SQL :
+builder.Services.AddDbContext<LogistiqDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // For PostgresSQL
-builder.Services.AddDbContext<LogistiqDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+//builder.Services.AddDbContext<LogistiqDbContext>(options =>
+//    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<CreateProductValidator>();
