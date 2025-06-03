@@ -174,10 +174,17 @@ public class StripeService : IStripeService
     {
         try
         {
-            var stripeEvent = EventUtility.ConstructEvent(payload, signature, _webhookSecret);
+            // FIXED: Allow API version mismatch to prevent the exception
+            var stripeEvent = EventUtility.ConstructEvent(
+                payload,
+                signature,
+                _webhookSecret,
+                tolerance: 300, // 5 minutes tolerance
+                throwOnApiVersionMismatch: false // This prevents the version mismatch exception
+            );
 
-            _logger.LogInformation("Processing Stripe webhook event {EventType} with ID {EventId}",
-                stripeEvent.Type, stripeEvent.Id);
+            _logger.LogInformation("Processing Stripe webhook event {EventType} with ID {EventId} (API Version: {ApiVersion})",
+                stripeEvent.Type, stripeEvent.Id, stripeEvent.ApiVersion);
 
             var response = new WebhookEventResponse
             {
@@ -227,6 +234,7 @@ public class StripeService : IStripeService
                 default:
                     _logger.LogInformation("Unhandled Stripe webhook event type: {EventType}", stripeEvent.Type);
                     response.Message = "Event type not handled";
+                    response.Processed = true; // Mark as processed to avoid retries
                     break;
             }
 

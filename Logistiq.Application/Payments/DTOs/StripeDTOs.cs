@@ -1,5 +1,4 @@
-﻿// Logistiq.Application/Payments/DTOs/StripeDTOs.cs
-namespace Logistiq.Application.Payments.DTOs;
+﻿namespace Logistiq.Application.Payments.DTOs;
 
 public class CreateCheckoutSessionRequest
 {
