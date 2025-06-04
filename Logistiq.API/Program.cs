@@ -31,59 +31,7 @@ builder.Services.AddControllers();
 
 // For PostgresSQL
 builder.Services.AddDbContext<LogistiqDbContext>(options =>
-{
-    string connectionString = null;
-
-    // Try standard connection string first
-    connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
-    // If not found, try DATABASE_URL and convert it
-    if (string.IsNullOrEmpty(connectionString))
-    {
-        var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
-        if (!string.IsNullOrEmpty(databaseUrl))
-        {
-            Console.WriteLine("Converting DATABASE_URL to connection string...");
-            connectionString = ConvertPostgreSqlUriToConnectionString(databaseUrl);
-        }
-    }
-
-    if (string.IsNullOrEmpty(connectionString))
-    {
-        throw new InvalidOperationException("No database connection string found!");
-    }
-
-    Console.WriteLine($"Using connection: Host={connectionString.Split(';')[0].Split('=')[1]}");
-    options.UseNpgsql(connectionString);
-});
-
-static string ConvertPostgreSqlUriToConnectionString(string postgresUri)
-{
-    try
-    {
-        var uri = new Uri(postgresUri);
-
-        var host = uri.Host;
-        var port = uri.Port > 0 ? uri.Port : 5432;
-        var database = uri.AbsolutePath.TrimStart('/');
-        var username = uri.UserInfo.Split(':')[0];
-        var password = uri.UserInfo.Split(':')[1];
-
-        // Parse query parameters for SSL mode
-        var query = uri.Query;
-        var sslMode = query.Contains("sslmode=require") ? "Require" : "Prefer";
-
-        var connectionString = $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode={sslMode};Trust Server Certificate=true";
-
-        Console.WriteLine($"Converted URI to connection string successfully");
-        return connectionString;
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Failed to convert PostgreSQL URI: {ex.Message}");
-        throw;
-    }
-}
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<CreateProductValidator>();
