@@ -40,7 +40,6 @@ static string GetConnectionString(IConfiguration configuration)
 {
     // Try standard connection string first
     var connectionString = configuration.GetConnectionString("DefaultConnection");
-
     if (!string.IsNullOrEmpty(connectionString))
     {
         Console.WriteLine($"Using DefaultConnection: {connectionString.Substring(0, 20)}...");
@@ -51,12 +50,20 @@ static string GetConnectionString(IConfiguration configuration)
     var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
     if (!string.IsNullOrEmpty(databaseUrl))
     {
-        Console.WriteLine($"Using DATABASE_URL: {databaseUrl.Substring(0, 20)}...");
-        return databaseUrl;
+        Console.WriteLine($"Parsing DATABASE_URL...");
+
+        var uri = new Uri(databaseUrl);
+        var userInfo = uri.UserInfo.Split(':');
+
+        var npgsqlConnectionString =
+            $"Host={uri.Host};Port={uri.Port};Database={uri.LocalPath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true;";
+
+        return npgsqlConnectionString;
     }
 
     throw new InvalidOperationException("No database connection string found!");
 }
+
 // FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<CreateProductValidator>();
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehaviour<,>));
