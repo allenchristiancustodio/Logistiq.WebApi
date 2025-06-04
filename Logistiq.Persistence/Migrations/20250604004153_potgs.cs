@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Logistiq.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class postgresInitial : Migration
+    public partial class potgs : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

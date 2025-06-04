@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Logistiq.Persistence.Migrations
 {
     [DbContext(typeof(LogistiqDbContext))]
-    [Migration("20250603225259_postgresInitial")]
-    partial class postgresInitial
+    [Migration("20250604004153_potgs")]
+    partial class potgs
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

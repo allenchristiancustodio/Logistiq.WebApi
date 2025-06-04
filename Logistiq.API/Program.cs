@@ -31,8 +31,32 @@ builder.Services.AddControllers();
 
 // For PostgresSQL
 builder.Services.AddDbContext<LogistiqDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    var connectionString = GetConnectionString(builder.Configuration);
+    options.UseNpgsql(connectionString);
+});
 
+static string GetConnectionString(IConfiguration configuration)
+{
+    // Try standard connection string first
+    var connectionString = configuration.GetConnectionString("DefaultConnection");
+
+    if (!string.IsNullOrEmpty(connectionString))
+    {
+        Console.WriteLine($"Using DefaultConnection: {connectionString.Substring(0, 20)}...");
+        return connectionString;
+    }
+
+    // Try DATABASE_URL environment variable
+    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+    if (!string.IsNullOrEmpty(databaseUrl))
+    {
+        Console.WriteLine($"Using DATABASE_URL: {databaseUrl.Substring(0, 20)}...");
+        return databaseUrl;
+    }
+
+    throw new InvalidOperationException("No database connection string found!");
+}
 // FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<CreateProductValidator>();
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehaviour<,>));
