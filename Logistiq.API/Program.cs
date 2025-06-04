@@ -191,7 +191,7 @@ builder.Services.AddCors(options =>
         }
         else
         {
-            policy.WithOrigins("https://logistiq-web-app-five.vercel.app")
+            policy.WithOrigins("https://logistiq-webapp.onrender.com")
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
